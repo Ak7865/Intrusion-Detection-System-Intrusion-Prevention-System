@@ -1,0 +1,52 @@
+﻿# Python environments
+.venv/
+venv/
+env/
+
+# Python cache and test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Datasets and raw packet captures
+datasets/
+pcaps/
+*.pcap
+*.pcapng
+
+# Temporary files
+tmp/
+*.tmp
+
+# Runtime logs and telemetry
+logs/*.jsonl
+logs/*.log
+logs/*.json
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+
+# CICFlowMeter local backups and test cache
+tools/cicflowmeter-python/backup/
+tools/cicflowmeter-python/.pytest_cache/
+
+# Local source backups
+*.backup-*
