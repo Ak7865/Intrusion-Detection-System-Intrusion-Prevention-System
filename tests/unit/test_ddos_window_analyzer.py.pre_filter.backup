@@ -1,0 +1,309 @@
+import pytest
+
+from src.telemetry.ddos.window_analyzer import (
+    DDoSThresholds,
+    RollingWindowDDoSAnalyzer,
+)
+
+
+def make_record(
+    timestamp,
+    src_ip="192.168.56.128",
+    dst_ip="192.168.56.129",
+    packets=10,
+    bytes_count=1000,
+    syn=1,
+):
+    return {
+        "timestamp": timestamp,
+        "sensor_id": "node-a",
+        "flow": {
+            "src_ip": src_ip,
+            "dst_ip": dst_ip,
+            "protocol": 6,
+        },
+        "raw_features": {
+            "tot_fwd_pkts": packets,
+            "tot_bwd_pkts": 0,
+            "totlen_fwd_pkts": bytes_count,
+            "totlen_bwd_pkts": 0,
+            "syn_flag_cnt": syn,
+        },
+    }
+
+
+def test_normal_traffic_does_not_trigger_alerts():
+    analyzer = RollingWindowDDoSAnalyzer()
+
+    result = analyzer.process_record(
+        make_record("2026-11-11T10:00:00Z")
+    )
+
+    assert result["alerts"] == []
+    assert result["windows"]["5s"]["source_flow_count"] == 1
+
+
+def test_high_source_flow_count_triggers_alert():
+    thresholds = DDoSThresholds(
+        source_flows_5s=2,
+        source_packets_5s=10000,
+        source_bytes_5s=10000000,
+        destination_unique_sources_5s=100,
+        destination_syn_packets_5s=10000,
+    )
+
+    analyzer = RollingWindowDDoSAnalyzer(thresholds)
+
+    analyzer.process_record(
+        make_record("2026-11-11T10:00:00Z")
+    )
+
+    result = analyzer.process_record(
+        make_record("2026-11-11T10:00:01Z")
+    )
+
+    alert_types = [
+        alert["alert_type"]
+        for alert in result["alerts"]
+    ]
+
+    assert "HIGH_SOURCE_FLOW_RATE" in alert_types
+
+
+def test_multiple_sources_trigger_destination_alert():
+    thresholds = DDoSThresholds(
+        source_flows_5s=100,
+        source_packets_5s=10000,
+        source_bytes_5s=10000000,
+        destination_unique_sources_5s=2,
+        destination_syn_packets_5s=10000,
+    )
+
+    analyzer = RollingWindowDDoSAnalyzer(thresholds)
+
+    analyzer.process_record(
+        make_record(
+            "2026-11-11T10:00:00Z",
+            src_ip="192.168.56.128",
+        )
+    )
+
+    result = analyzer.process_record(
+        make_record(
+            "2026-11-11T10:00:01Z",
+            src_ip="192.168.56.130",
+        )
+    )
+
+    alert_types = [
+        alert["alert_type"]
+        for alert in result["alerts"]
+    ]
+
+    assert "HIGH_DESTINATION_SOURCE_DIVERSITY" in alert_types
+
+
+def test_old_events_expire_from_window():
+    analyzer = RollingWindowDDoSAnalyzer()
+
+    analyzer.process_record(
+        make_record("2026-11-11T10:00:00Z")
+    )
+
+    result = analyzer.process_record(
+        make_record("2026-11-11T10:00:06Z")
+    )
+
+    assert result["windows"]["5s"]["source_flow_count"] == 1
+
+
+def test_out_of_order_timestamp_is_rejected():
+    analyzer = RollingWindowDDoSAnalyzer()
+
+    analyzer.process_record(
+        make_record("2026-11-11T10:00:05Z")
+    )
+
+    with pytest.raises(ValueError, match="Out-of-order"):
+        analyzer.process_record(
+            make_record("2026-11-11T10:00:02Z")
+        )
+
+
+def test_timestamp_without_timezone_is_rejected():
+    analyzer = RollingWindowDDoSAnalyzer()
+
+    with pytest.raises(ValueError, match="timezone"):
+        analyzer.process_record(
+            make_record("2026-11-11T10:00:00")
+        )
+
+def test_source_activity_aggregates_across_destinations():
+    thresholds = DDoSThresholds(
+        source_flows_5s=2,
+        source_packets_5s=10000,
+        source_bytes_5s=10000000,
+        destination_unique_sources_5s=100,
+        destination_syn_packets_5s=10000,
+    )
+
+    analyzer = RollingWindowDDoSAnalyzer(thresholds)
+
+    analyzer.process_record(
+        make_record(
+            "2026-11-11T10:00:00Z",
+            src_ip="192.168.56.128",
+            dst_ip="192.168.56.129",
+        )
+    )
+
+    result = analyzer.process_record(
+        make_record(
+            "2026-11-11T10:00:01Z",
+            src_ip="192.168.56.128",
+            dst_ip="192.168.56.130",
+        )
+    )
+
+    metrics = result["windows"]["5s"]
+
+    assert metrics["source_flow_count"] == 2
+    assert metrics["source_unique_destinations"] == 2
+    assert any(
+        alert["alert_type"] == "HIGH_SOURCE_FLOW_RATE"
+        for alert in result["alerts"]
+    )
+    
+def test_repeated_threshold_condition_does_not_repeat_alert():
+    thresholds = DDoSThresholds(
+        source_flows_5s=2,
+        source_packets_5s=10000,
+        source_bytes_5s=10000000,
+        destination_unique_sources_5s=100,
+        destination_syn_packets_5s=10000,
+    )
+
+    analyzer = RollingWindowDDoSAnalyzer(thresholds)
+
+    analyzer.process_record(
+        make_record("2026-11-11T10:00:00Z")
+    )
+
+    second = analyzer.process_record(
+        make_record("2026-11-11T10:00:01Z")
+    )
+
+    third = analyzer.process_record(
+        make_record("2026-11-11T10:00:02Z")
+    )
+
+    assert any(
+        alert["alert_type"] == "HIGH_SOURCE_FLOW_RATE"
+        for alert in second["alerts"]
+    )
+
+    assert not any(
+        alert["alert_type"] == "HIGH_SOURCE_FLOW_RATE"
+        for alert in third["alerts"]
+    )
+
+def test_record_within_allowed_lateness_is_accepted():
+    analyzer = RollingWindowDDoSAnalyzer()
+
+    analyzer.process_record(
+        make_record("2026-11-11T10:00:05Z")
+    )
+
+    # One second late: should be accepted with a 2-second allowance.
+    result = analyzer.process_record(
+        make_record("2026-11-11T10:00:04Z")
+    )
+
+    assert result["timestamp"] == "2026-11-11T10:00:04+00:00"
+
+def test_record_beyond_allowed_lateness_is_rejected():
+    analyzer = RollingWindowDDoSAnalyzer(
+        allowed_lateness_seconds=2.0
+    )
+
+    analyzer.process_record(
+        make_record("2026-11-11T10:00:05Z")
+    )
+
+    with pytest.raises(ValueError, match="allowed lateness"):
+        analyzer.process_record(
+            make_record("2026-11-11T10:00:02Z")
+        )
+
+def test_late_record_does_not_repeat_active_alert():
+    thresholds = DDoSThresholds(
+        source_flows_5s=2,
+        source_packets_5s=10000,
+        source_bytes_5s=10000000,
+        destination_unique_sources_5s=100,
+        destination_syn_packets_5s=10000,
+    )
+
+    analyzer = RollingWindowDDoSAnalyzer(thresholds)
+
+    analyzer.process_record(
+        make_record("2026-11-11T10:00:00Z")
+    )
+
+    second = analyzer.process_record(
+        make_record("2026-11-11T10:00:02Z")
+    )
+
+    assert any(
+        alert["alert_type"] == "HIGH_SOURCE_FLOW_RATE"
+        for alert in second["alerts"]
+    )
+
+    late = analyzer.process_record(
+        make_record("2026-11-11T10:00:01Z")
+    )
+
+    assert not any(
+        alert["alert_type"] == "HIGH_SOURCE_FLOW_RATE"
+        for alert in late["alerts"]
+    )
+
+def test_late_record_does_not_clear_alert_at_latest_watermark():
+    thresholds = DDoSThresholds(
+        source_flows_5s=2,
+        source_packets_5s=10000,
+        source_bytes_5s=10000000,
+        destination_unique_sources_5s=100,
+        destination_syn_packets_5s=10000,
+    )
+
+    analyzer = RollingWindowDDoSAnalyzer(thresholds)
+
+    analyzer.process_record(
+        make_record("2026-11-11T10:00:04Z")
+    )
+
+    second = analyzer.process_record(
+        make_record("2026-11-11T10:00:05Z")
+    )
+
+    assert any(
+        a["alert_type"] == "HIGH_SOURCE_FLOW_RATE"
+        for a in second["alerts"]
+    )
+
+    # This record is two seconds late.
+    analyzer.process_record(
+        make_record("2026-11-11T10:00:03Z")
+    )
+
+    # The active condition must not be cleared by the late record.
+    subsequent = analyzer.process_record(
+        make_record("2026-11-11T10:00:05.500Z")
+    )
+
+    assert not any(
+        a["alert_type"] == "HIGH_SOURCE_FLOW_RATE"
+        for a in subsequent["alerts"]
+    )
+
