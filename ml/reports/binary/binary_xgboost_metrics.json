@@ -1,0 +1,88 @@
+{
+    "experiment": "Binary XGBoost",
+    "created_utc": "2026-11-11T18:27:17.301067+00:00",
+    "algorithm": "XGBClassifier",
+    "configuration": {
+        "n_estimators": 200,
+        "max_depth": 8,
+        "learning_rate": 0.1,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "scale_pos_weight": 4.4924192386959,
+        "objective": "binary:logistic",
+        "eval_metric": "logloss",
+        "tree_method": "hist",
+        "max_bin": 256,
+        "random_state": 42,
+        "n_jobs": 2
+    },
+    "features": [
+        "Destination Port",
+        "Flow Duration",
+        "Total Fwd Packets",
+        "Total Backward Packets",
+        "Total Length of Fwd Packets",
+        "Total Length of Bwd Packets",
+        "Flow Bytes/s",
+        "Flow Packets/s",
+        "Fwd Packets/s",
+        "Bwd Packets/s",
+        "Down/Up Ratio"
+    ],
+    "target": "binary_label",
+    "training_records": 2211962,
+    "testing_records": 552991,
+    "training_time_seconds": 45.05898639999941,
+    "inference_time_seconds": 1.9572326000052271,
+    "inference_latency_ms_per_flow": 0.003539357060070104,
+    "accuracy": 0.99788604154498,
+    "attack_precision": 0.9941112214498511,
+    "attack_recall": 0.9942790739250916,
+    "attack_f1_score": 0.9941951406027321,
+    "false_positive_rate": 0.001311053529895558,
+    "false_negative_rate": 0.005720926074908376,
+    "confusion_matrix": {
+        "labels": [
+            "Normal",
+            "Attack"
+        ],
+        "matrix": [
+            [
+                451715,
+                593
+            ],
+            [
+                576,
+                100107
+            ]
+        ]
+    },
+    "classification_report": {
+        "Normal": {
+            "precision": 0.9987264836134259,
+            "recall": 0.9986889464701044,
+            "f1-score": 0.9987077146890501,
+            "support": 452308.0
+        },
+        "Attack": {
+            "precision": 0.9941112214498511,
+            "recall": 0.9942790739250916,
+            "f1-score": 0.9941951406027321,
+            "support": 100683.0
+        },
+        "accuracy": 0.99788604154498,
+        "macro avg": {
+            "precision": 0.9964188525316384,
+            "recall": 0.996484010197598,
+            "f1-score": 0.9964514276458911,
+            "support": 552991.0
+        },
+        "weighted avg": {
+            "precision": 0.9978861834269578,
+            "recall": 0.99788604154498,
+            "f1-score": 0.997886110907555,
+            "support": 552991.0
+        }
+    },
+    "model_file": "ml\\models\\binary\\binary_xgboost.json"
+}
