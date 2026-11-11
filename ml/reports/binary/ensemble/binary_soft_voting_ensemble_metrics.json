@@ -1,0 +1,81 @@
+{
+    "experiment": "Binary RF + XGBoost Soft Voting Ensemble",
+    "created_utc": "2026-11-11T18:49:47.412561+00:00",
+    "algorithm": "Equal-weight probability averaging",
+    "configuration": {
+        "random_forest_weight": 0.5,
+        "xgboost_weight": 0.5,
+        "attack_probability_threshold": 0.5,
+        "chunk_size": 50000
+    },
+    "features": [
+        "Destination Port",
+        "Flow Duration",
+        "Total Fwd Packets",
+        "Total Backward Packets",
+        "Total Length of Fwd Packets",
+        "Total Length of Bwd Packets",
+        "Flow Bytes/s",
+        "Flow Packets/s",
+        "Fwd Packets/s",
+        "Bwd Packets/s",
+        "Down/Up Ratio"
+    ],
+    "target": "binary_label",
+    "testing_records": 552991,
+    "inference_time_seconds": 4.018741599997156,
+    "inference_latency_ms_per_flow": 0.0072672821076602626,
+    "accuracy": 0.9978155159848895,
+    "attack_precision": 0.9937067587822479,
+    "attack_recall": 0.9942989382517406,
+    "attack_f1_score": 0.9940027603189261,
+    "false_positive_rate": 0.0014016997267348797,
+    "false_negative_rate": 0.005701061748259389,
+    "confusion_matrix": {
+        "labels": [
+            "Normal",
+            "Attack"
+        ],
+        "matrix": [
+            [
+                451674,
+                634
+            ],
+            [
+                574,
+                100109
+            ]
+        ]
+    },
+    "classification_report": {
+        "Normal": {
+            "precision": 0.9987307848790928,
+            "recall": 0.9985983002732651,
+            "f1-score": 0.9986645381822684,
+            "support": 452308.0
+        },
+        "Attack": {
+            "precision": 0.9937067587822479,
+            "recall": 0.9942989382517406,
+            "f1-score": 0.9940027603189261,
+            "support": 100683.0
+        },
+        "accuracy": 0.9978155159848895,
+        "macro avg": {
+            "precision": 0.9962187718306703,
+            "recall": 0.9964486192625028,
+            "f1-score": 0.9963336492505972,
+            "support": 552991.0
+        },
+        "weighted avg": {
+            "precision": 0.9978160610960499,
+            "recall": 0.9978155159848895,
+            "f1-score": 0.997815768888347,
+            "support": 552991.0
+        }
+    },
+    "component_models": [
+        "ml\\models\\binary\\binary_random_forest.joblib",
+        "ml\\models\\binary\\binary_xgboost.json"
+    ]
+}
