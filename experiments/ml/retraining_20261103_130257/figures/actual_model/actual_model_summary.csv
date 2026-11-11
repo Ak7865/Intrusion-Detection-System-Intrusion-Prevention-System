@@ -1,4 +1,0 @@
-model,trees,max_depth_config,validation_records,TN,FP,FN,TP
-A_baseline_imbalanced,30,15,403966,323993,463,707,78803
-B_balanced_undersampled,30,15,403966,323586,870,449,79061
-C_class_weighted,30,15,403966,323528,928,478,79032

@@ -1,0 +1,95 @@
+{
+    "project": {
+        "name": "Decentralized Self-Learning Intrusion Prevention System",
+        "dataset": "CIC-IDS2017",
+        "version": "2.0"
+    },
+    "paths": {
+        "raw": "datasets/raw/CIC-IDS2017/MachineLearningCVE",
+        "interim": "datasets/interim/cicids2017_v2",
+        "processed": "datasets/processed/cicids2017_v2",
+        "binary": "datasets/processed/cicids2017_v2/binary",
+        "multiclass": "datasets/processed/cicids2017_v2/multiclass",
+        "deployment": "datasets/processed/cicids2017_v2/deployment",
+        "quarantine": "datasets/processed/cicids2017_v2/quarantine",
+        "splits": "datasets/splits/cicids2017_v2"
+    },
+    "raw_data": {
+        "expected_files": 8,
+        "expected_columns_before_duplicate_removal": 79,
+        "expected_columns_after_duplicate_removal": 78,
+        "duplicate_column": "Fwd Header Length.1",
+        "label_column": "Label"
+    },
+    "features": {
+        "deployment": [
+            "Destination Port",
+            "Flow Duration",
+            "Total Fwd Packets",
+            "Total Backward Packets",
+            "Total Length of Fwd Packets",
+            "Total Length of Bwd Packets",
+            "Flow Bytes/s",
+            "Flow Packets/s",
+            "Fwd Packets/s",
+            "Bwd Packets/s",
+            "Down/Up Ratio"
+        ]
+    },
+    "labels": {
+        "multiclass": {
+            "BENIGN": "Normal",
+            "Bot": "Botnet",
+            "FTP-Patator": "Brute Force",
+            "SSH-Patator": "Brute Force",
+            "DoS Hulk": "DoS/DDoS",
+            "DoS GoldenEye": "DoS/DDoS",
+            "DoS slowloris": "DoS/DDoS",
+            "DoS Slowhttptest": "DoS/DDoS",
+            "DDoS": "DoS/DDoS",
+            "Infiltration": "Infiltration",
+            "PortScan": "PortScan",
+            "Heartbleed": "OTHER_RARE",
+            "Web Attack � Brute Force": "Web Attack",
+            "Web Attack � XSS": "Web Attack",
+            "Web Attack � Sql Injection": "Web Attack"
+        },
+        "binary": {
+            "Normal": 0,
+            "Attack": 1
+        },
+        "classes": [
+            "Normal",
+            "Botnet",
+            "Brute Force",
+            "DoS/DDoS",
+            "Infiltration",
+            "PortScan",
+            "Web Attack",
+            "OTHER_RARE"
+        ]
+    },
+    "preprocessing": {
+        "encoding": "utf-8",
+        "chunk_size": 100000,
+        "remove_duplicate_column": true,
+        "numeric_conversion_errors": "raise",
+        "deployment_invalid_value_policy": "quarantine",
+        "deployment_invalid_conditions": [
+            "missing",
+            "infinite",
+            "negative"
+        ],
+        "research_negative_value_policy": "preserve_with_documented_missing_value_handling",
+        "preserve_original_label": true,
+        "preserve_source_filename": true,
+        "preserve_exclusion_reason": true,
+        "class_balancing": false,
+        "raw_data_modification": false
+    },
+    "expected_audit": {
+        "raw_records": 2830743,
+        "deployment_invalid_records": 2982,
+        "deployment_valid_records": 2827761
+    }
+}

@@ -1,9 +1,0 @@
-{
-    "accuracy": 0.9788348524380764,
-    "balanced_accuracy": 0.8848754992317599,
-    "macro_f1": 0.7350443834729259,
-    "weighted_f1": 0.9864265159259289,
-    "training_time_seconds": 4.667160987854004,
-    "pilot_training_records": 228286,
-    "validation_records": 403966
-}
