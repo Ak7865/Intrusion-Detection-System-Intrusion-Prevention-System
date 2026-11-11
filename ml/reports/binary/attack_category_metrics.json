@@ -1,0 +1,79 @@
+{
+    "experiment": "Binary Random Forest",
+    "analysis": "Attack-category detection using binary predictions",
+    "test_records_processed": 552991,
+    "analysis_inference_time_seconds": 3.7761296999960905,
+    "category_metrics": {
+        "DoS/DDoS": {
+            "test_records": 66037,
+            "detected_as_attack": 65962,
+            "missed_as_normal": 75,
+            "one_vs_rest_false_positives": 34870,
+            "one_vs_rest_true_negatives": 452084,
+            "recall": 0.9988642730590427,
+            "false_negative_rate": 0.001135726940957342,
+            "one_vs_rest_false_positive_rate": 0.07160840654353388
+        },
+        "PortScan": {
+            "test_records": 31471,
+            "detected_as_attack": 31463,
+            "missed_as_normal": 8,
+            "one_vs_rest_false_positives": 69369,
+            "one_vs_rest_true_negatives": 452151,
+            "recall": 0.9997457977185346,
+            "false_negative_rate": 0.0002542022814654762,
+            "one_vs_rest_false_positive_rate": 0.13301311550851358
+        },
+        "Brute Force": {
+            "test_records": 2397,
+            "detected_as_attack": 2279,
+            "missed_as_normal": 118,
+            "one_vs_rest_false_positives": 98553,
+            "one_vs_rest_true_negatives": 452041,
+            "recall": 0.9507717980809345,
+            "false_negative_rate": 0.049228201919065497,
+            "one_vs_rest_false_positive_rate": 0.17899395925128134
+        },
+        "Web Attack": {
+            "test_records": 395,
+            "detected_as_attack": 33,
+            "missed_as_normal": 362,
+            "one_vs_rest_false_positives": 100799,
+            "one_vs_rest_true_negatives": 451797,
+            "recall": 0.08354430379746836,
+            "false_negative_rate": 0.9164556962025316,
+            "one_vs_rest_false_positive_rate": 0.1824099342014781
+        },
+        "Botnet": {
+            "test_records": 375,
+            "detected_as_attack": 233,
+            "missed_as_normal": 142,
+            "one_vs_rest_false_positives": 100599,
+            "one_vs_rest_true_negatives": 452017,
+            "recall": 0.6213333333333333,
+            "false_negative_rate": 0.37866666666666665,
+            "one_vs_rest_false_positive_rate": 0.18204141754853279
+        },
+        "Infiltration": {
+            "test_records": 6,
+            "detected_as_attack": 1,
+            "missed_as_normal": 5,
+            "one_vs_rest_false_positives": 100831,
+            "one_vs_rest_true_negatives": 452154,
+            "recall": 0.16666666666666666,
+            "false_negative_rate": 0.8333333333333334,
+            "one_vs_rest_false_positive_rate": 0.1823394847961518
+        },
+        "OTHER_RARE": {
+            "test_records": 2,
+            "detected_as_attack": 1,
+            "missed_as_normal": 1,
+            "one_vs_rest_false_positives": 100831,
+            "one_vs_rest_true_negatives": 452158,
+            "recall": 0.5,
+            "false_negative_rate": 0.5,
+            "one_vs_rest_false_positive_rate": 0.18233816585863372
+        }
+    },
+    "interpretation": "Recall and false-negative rate measure how well each attack category is detected as Attack. One-vs-rest false-positive rate treats all other categories, including other attacks, as negatives."
+}

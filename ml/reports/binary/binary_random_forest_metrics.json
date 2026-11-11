@@ -1,0 +1,82 @@
+{
+    "experiment": "Binary Random Forest",
+    "created_utc": "2026-11-11T18:11:29.663098+00:00",
+    "algorithm": "RandomForestClassifier",
+    "configuration": {
+        "n_estimators": 50,
+        "max_depth": 12,
+        "min_samples_leaf": 10,
+        "class_weight": "balanced_subsample",
+        "random_state": 42,
+        "n_jobs": 2
+    },
+    "features": [
+        "Destination Port",
+        "Flow Duration",
+        "Total Fwd Packets",
+        "Total Backward Packets",
+        "Total Length of Fwd Packets",
+        "Total Length of Bwd Packets",
+        "Flow Bytes/s",
+        "Flow Packets/s",
+        "Fwd Packets/s",
+        "Bwd Packets/s",
+        "Down/Up Ratio"
+    ],
+    "target": "binary_label",
+    "training_records": 2211962,
+    "testing_records": 552991,
+    "training_time_seconds": 278.3113405999975,
+    "inference_time_seconds": 2.696448800001235,
+    "inference_latency_ms_per_flow": 0.004876116971164513,
+    "accuracy": 0.9971590857717395,
+    "attack_precision": 0.9914709615994922,
+    "attack_recall": 0.9929382318762849,
+    "attack_f1_score": 0.9922040542887626,
+    "false_positive_rate": 0.0019013592507760198,
+    "false_negative_rate": 0.0070617681237150265,
+    "confusion_matrix": {
+        "labels": [
+            "Normal",
+            "Attack"
+        ],
+        "matrix": [
+            [
+                451448,
+                860
+            ],
+            [
+                711,
+                99972
+            ]
+        ]
+    },
+    "classification_report": {
+        "Normal": {
+            "precision": 0.9984275442930474,
+            "recall": 0.9980986407492239,
+            "f1-score": 0.998263065429695,
+            "support": 452308.0
+        },
+        "Attack": {
+            "precision": 0.9914709615994922,
+            "recall": 0.9929382318762849,
+            "f1-score": 0.9922040542887626,
+            "support": 100683.0
+        },
+        "accuracy": 0.9971590857717395,
+        "macro avg": {
+            "precision": 0.9949492529462698,
+            "recall": 0.9955184363127545,
+            "f1-score": 0.9952335598592288,
+            "support": 552991.0
+        },
+        "weighted avg": {
+            "precision": 0.9971609601798607,
+            "recall": 0.9971590857717395,
+            "f1-score": 0.9971599020532522,
+            "support": 552991.0
+        }
+    },
+    "model_file": "ml\\models\\binary\\binary_random_forest.joblib"
+}
