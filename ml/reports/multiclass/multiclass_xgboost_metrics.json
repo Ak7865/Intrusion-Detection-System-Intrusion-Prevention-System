@@ -1,0 +1,225 @@
+{
+    "experiment": "Multiclass XGBoost",
+    "created_utc": "2026-11-11T19:42:39.368823+00:00",
+    "dataset": "CIC-IDS2017",
+    "training_records": 2211941,
+    "test_records": 552985,
+    "features": [
+        "Destination Port",
+        "Flow Duration",
+        "Total Fwd Packets",
+        "Total Backward Packets",
+        "Total Length of Fwd Packets",
+        "Total Length of Bwd Packets",
+        "Flow Bytes/s",
+        "Flow Packets/s",
+        "Fwd Packets/s",
+        "Bwd Packets/s",
+        "Down/Up Ratio"
+    ],
+    "target": "multiclass_label",
+    "classes": [
+        "Botnet",
+        "Brute Force",
+        "DoS/DDoS",
+        "Infiltration",
+        "Normal",
+        "OTHER_RARE",
+        "PortScan",
+        "Web Attack"
+    ],
+    "class_mapping": {
+        "0": "Botnet",
+        "1": "Brute Force",
+        "2": "DoS/DDoS",
+        "3": "Infiltration",
+        "4": "Normal",
+        "5": "OTHER_RARE",
+        "6": "PortScan",
+        "7": "Web Attack"
+    },
+    "class_weighting": "None (unweighted baseline)",
+    "model_parameters": {
+        "algorithm": "XGBClassifier",
+        "objective": "multi:softprob",
+        "num_class": 8,
+        "eval_metric": "mlogloss",
+        "n_estimators": 200,
+        "max_depth": 8,
+        "learning_rate": 0.1,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "tree_method": "hist",
+        "max_bin": 256,
+        "random_state": 42,
+        "n_jobs": 2
+    },
+    "training_time_seconds": 313.59774550000293,
+    "inference_time_seconds": 19.311680400001933,
+    "inference_latency_ms_per_flow": 0.03492261164408064,
+    "throughput_flows_per_second": 28634.74273320848,
+    "accuracy": 0.9981265314610703,
+    "macro_precision": 0.9860523498330562,
+    "macro_recall": 0.765486860512125,
+    "macro_f1": 0.8149050045436744,
+    "weighted_precision": 0.9980665969837966,
+    "weighted_recall": 0.9981265314610703,
+    "weighted_f1": 0.9977762170523543,
+    "confusion_matrix": {
+        "labels": [
+            "Botnet",
+            "Brute Force",
+            "DoS/DDoS",
+            "Infiltration",
+            "Normal",
+            "OTHER_RARE",
+            "PortScan",
+            "Web Attack"
+        ],
+        "matrix": [
+            [
+                149,
+                0,
+                0,
+                0,
+                229,
+                0,
+                0,
+                0
+            ],
+            [
+                0,
+                2434,
+                0,
+                0,
+                1,
+                0,
+                0,
+                0
+            ],
+            [
+                0,
+                0,
+                65762,
+                0,
+                138,
+                0,
+                0,
+                1
+            ],
+            [
+                0,
+                0,
+                0,
+                5,
+                3,
+                0,
+                0,
+                0
+            ],
+            [
+                3,
+                2,
+                177,
+                0,
+                452022,
+                0,
+                102,
+                2
+            ],
+            [
+                0,
+                0,
+                0,
+                0,
+                0,
+                2,
+                0,
+                0
+            ],
+            [
+                0,
+                0,
+                10,
+                0,
+                5,
+                0,
+                31531,
+                1
+            ],
+            [
+                0,
+                0,
+                0,
+                0,
+                362,
+                0,
+                0,
+                44
+            ]
+        ]
+    },
+    "classification_report": {
+        "Botnet": {
+            "precision": 0.9802631578947368,
+            "recall": 0.3941798941798942,
+            "f1-score": 0.5622641509433962,
+            "support": 378.0
+        },
+        "Brute Force": {
+            "precision": 0.9991789819376026,
+            "recall": 0.9995893223819302,
+            "f1-score": 0.9993841100390064,
+            "support": 2435.0
+        },
+        "DoS/DDoS": {
+            "precision": 0.9971644755796145,
+            "recall": 0.9978907755572753,
+            "f1-score": 0.9975274933636709,
+            "support": 65901.0
+        },
+        "Infiltration": {
+            "precision": 1.0,
+            "recall": 0.625,
+            "f1-score": 0.7692307692307693,
+            "support": 8.0
+        },
+        "Normal": {
+            "precision": 0.9983699973495892,
+            "recall": 0.9993676875049745,
+            "f1-score": 0.9988685932990671,
+            "support": 452308.0
+        },
+        "OTHER_RARE": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 2.0
+        },
+        "PortScan": {
+            "precision": 0.9967755192362406,
+            "recall": 0.9994928202364726,
+            "f1-score": 0.9981323203545426,
+            "support": 31547.0
+        },
+        "Web Attack": {
+            "precision": 0.9166666666666666,
+            "recall": 0.10837438423645321,
+            "f1-score": 0.19383259911894274,
+            "support": 406.0
+        },
+        "accuracy": 0.9981265314610703,
+        "macro avg": {
+            "precision": 0.9860523498330562,
+            "recall": 0.765486860512125,
+            "f1-score": 0.8149050045436744,
+            "support": 552985.0
+        },
+        "weighted avg": {
+            "precision": 0.9980665969837966,
+            "recall": 0.9981265314610703,
+            "f1-score": 0.9977762170523543,
+            "support": 552985.0
+        }
+    }
+}

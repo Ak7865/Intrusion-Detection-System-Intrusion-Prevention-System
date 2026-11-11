@@ -1,0 +1,32 @@
+{
+    "experiment": "Standardized Binary Inference Benchmark",
+    "created_utc": "2026-11-11T19:09:26.307519+00:00",
+    "test_records": 552991,
+    "chunk_size": 50000,
+    "warmup_records": 1000,
+    "timing_scope": "Prediction computation only. CSV reading, model loading, and warm-up are excluded.",
+    "prediction_method": "predict_proba for individual models; equal-weight probability averaging for the ensemble.",
+    "ensemble_configuration": {
+        "random_forest_weight": 0.5,
+        "xgboost_weight": 0.5,
+        "attack_probability_threshold": 0.5
+    },
+    "benchmark_wall_time_seconds": 3.044800199997553,
+    "results": {
+        "random_forest": {
+            "inference_time_seconds": 1.212934299997869,
+            "latency_ms_per_flow": 0.0021934069451363023,
+            "throughput_flows_per_second": 455911.7505383198
+        },
+        "xgboost": {
+            "inference_time_seconds": 1.1845716000025277,
+            "latency_ms_per_flow": 0.0021421173219863033,
+            "throughput_flows_per_second": 466827.8388565284
+        },
+        "ensemble": {
+            "inference_time_seconds": 0.013232600002083927,
+            "latency_ms_per_flow": 2.3929141707702163e-05,
+            "throughput_flows_per_second": 41790048.81224495
+        }
+    }
+}

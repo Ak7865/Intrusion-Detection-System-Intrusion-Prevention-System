@@ -1,0 +1,32 @@
+{
+    "experiment": "Standardized Binary Inference Benchmark V2",
+    "created_utc": "2026-11-11T19:22:36.987294+00:00",
+    "test_records": 552991,
+    "chunk_size": 50000,
+    "warmup_records": 1000,
+    "timing_scope": "Prediction computation only. CSV reading, model loading, and warm-up are excluded.",
+    "prediction_method": "Individual models use predict_proba followed by threshold classification. The ensemble includes both component model predictions, probability averaging, and threshold classification.",
+    "ensemble_configuration": {
+        "random_forest_weight": 0.5,
+        "xgboost_weight": 0.5,
+        "attack_probability_threshold": 0.5
+    },
+    "benchmark_wall_time_seconds": 5.397272099995462,
+    "results": {
+        "random_forest": {
+            "inference_time_seconds": 1.0775459999858867,
+            "latency_ms_per_flow": 0.0019485778249300383,
+            "throughput_flows_per_second": 513194.7963309621
+        },
+        "xgboost": {
+            "inference_time_seconds": 1.1964793000006466,
+            "latency_ms_per_flow": 0.002163650583826222,
+            "throughput_flows_per_second": 462181.8363257109
+        },
+        "ensemble": {
+            "inference_time_seconds": 2.3718152999863378,
+            "latency_ms_per_flow": 0.0042890667298135735,
+            "throughput_flows_per_second": 233150.9540406394
+        }
+    }
+}

@@ -1,0 +1,51 @@
+{
+    "experiment": "Multiclass Model Comparison",
+    "test_records": 552985,
+    "features": [
+        "Destination Port",
+        "Flow Duration",
+        "Total Fwd Packets",
+        "Total Backward Packets",
+        "Total Length of Fwd Packets",
+        "Total Length of Bwd Packets",
+        "Flow Bytes/s",
+        "Flow Packets/s",
+        "Fwd Packets/s",
+        "Bwd Packets/s",
+        "Down/Up Ratio"
+    ],
+    "classes": [
+        "Botnet",
+        "Brute Force",
+        "DoS/DDoS",
+        "Infiltration",
+        "Normal",
+        "OTHER_RARE",
+        "PortScan",
+        "Web Attack"
+    ],
+    "models": {
+        "random_forest": {
+            "accuracy": 0.9848169480184815,
+            "macro_precision": 0.7550401593365581,
+            "macro_recall": 0.9776941239404169,
+            "macro_f1": 0.7747365866557867,
+            "weighted_f1": 0.9905969791457453,
+            "training_time_seconds": 164.86092249999638,
+            "inference_time_seconds": 3.913311699994665,
+            "inference_latency_ms_per_flow": 0.007076704973904654,
+            "throughput_flows_per_second": 141308.7028055429
+        },
+        "xgboost": {
+            "accuracy": 0.9981265314610703,
+            "macro_precision": 0.9860523498330562,
+            "macro_recall": 0.765486860512125,
+            "macro_f1": 0.8149050045436744,
+            "weighted_f1": 0.9977762170523543,
+            "training_time_seconds": 313.59774550000293,
+            "inference_time_seconds": 19.311680400001933,
+            "inference_latency_ms_per_flow": 0.03492261164408064,
+            "throughput_flows_per_second": 28634.74273320848
+        }
+    }
+}
