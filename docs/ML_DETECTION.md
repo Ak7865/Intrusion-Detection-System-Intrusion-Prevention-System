@@ -9,21 +9,21 @@ trained on the CICIDS2017 dataset to classify network flows as benign or attack.
 
 ### Binary Classification (Attack vs Normal)
 
-| Model | File | Accuracy |
-|---|---|---|
-| Random Forest | `ml/models/binary/binary_random_forest.joblib` | See reports |
-| XGBoost | `ml/models/binary/binary_xgboost.json` | See reports |
-| **Ensemble** | RF + XGB averaged | Threshold: 0.5 |
+| Model         | File                                           | Accuracy       |
+| ------------- | ---------------------------------------------- | -------------- |
+| Random Forest | `ml/models/binary/binary_random_forest.joblib` | See reports    |
+| XGBoost       | `ml/models/binary/binary_xgboost.json`         | See reports    |
+| **Ensemble**  | RF + XGB averaged                              | Threshold: 0.5 |
 
 The ensemble averages the attack probability from both models.
 If the ensemble probability ≥ 0.5, the flow is classified as an attack.
 
 ### Multiclass Classification (Attack Type)
 
-| Model | File |
-|---|---|
-| Random Forest | `ml/models/multiclass/multiclass_random_forest.joblib` |
-| XGBoost | `ml/models/multiclass/multiclass_xgboost.json` |
+| Model         | File                                                           |
+| ------------- | -------------------------------------------------------------- |
+| Random Forest | `ml/models/multiclass/multiclass_random_forest.joblib`         |
+| XGBoost       | `ml/models/multiclass/multiclass_xgboost.json`                 |
 | Label Encoder | `ml/models/multiclass/multiclass_xgboost_label_encoder.joblib` |
 
 Attack classes: `Normal`, `Botnet`, `Brute Force`, `DoS/DDoS`,
@@ -33,19 +33,19 @@ Attack classes: `Normal`, `Botnet`, `Brute Force`, `DoS/DDoS`,
 
 The models use 11 features from the CICIDS2017 deployment feature set:
 
-| # | Feature Name | Unit | Notes |
-|---|---|---|---|
-| 1 | Destination Port | integer | |
-| 2 | Flow Duration | microseconds | CICFlowMeter outputs seconds; server converts × 1,000,000 |
-| 3 | Total Fwd Packets | count | |
-| 4 | Total Backward Packets | count | |
-| 5 | Total Length of Fwd Packets | bytes | |
-| 6 | Total Length of Bwd Packets | bytes | |
-| 7 | Flow Bytes/s | bytes/s | |
-| 8 | Flow Packets/s | packets/s | |
-| 9 | Fwd Packets/s | packets/s | |
-| 10 | Bwd Packets/s | packets/s | |
-| 11 | Down/Up Ratio | ratio | |
+| #   | Feature Name                | Unit         | Notes                                                     |
+| --- | --------------------------- | ------------ | --------------------------------------------------------- |
+| 1   | Destination Port            | integer      |                                                           |
+| 2   | Flow Duration               | microseconds | CICFlowMeter outputs seconds; server converts × 1,000,000 |
+| 3   | Total Fwd Packets           | count        |                                                           |
+| 4   | Total Backward Packets      | count        |                                                           |
+| 5   | Total Length of Fwd Packets | bytes        |                                                           |
+| 6   | Total Length of Bwd Packets | bytes        |                                                           |
+| 7   | Flow Bytes/s                | bytes/s      |                                                           |
+| 8   | Flow Packets/s              | packets/s    |                                                           |
+| 9   | Fwd Packets/s               | packets/s    |                                                           |
+| 10  | Bwd Packets/s               | packets/s    |                                                           |
+| 11  | Down/Up Ratio               | ratio        |                                                           |
 
 **Feature compatibility:** `NOT_VERIFIED`
 
@@ -80,6 +80,7 @@ this uncertainty warning.
 ## Validation Rules
 
 Before prediction:
+
 - All features must be finite (no `inf`, `-inf`, `nan`)
 - All features must be non-negative (≥ 0)
 - Destination Port must be a valid integer
@@ -154,4 +155,3 @@ Detailed model performance metrics are in `ml/reports/`:
 - `ml/reports/multiclass/multiclass_random_forest_metrics.json`
 - `ml/reports/multiclass/multiclass_xgboost_metrics.json`
 - `ml/reports/multiclass/model_selection/multiclass_model_selection_report.md`
-

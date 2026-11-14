@@ -25,6 +25,7 @@ The token is hashed with SHA-256 and compared against `IPS_NODE_TOKEN_HASHES` in
 Returns API and model status. No authentication required.
 
 **Response:**
+
 ```json
 {
   "status": "ok",
@@ -43,6 +44,7 @@ Returns API and model status. No authentication required.
 Extended health check for Admin Panel integration.
 
 **Response:**
+
 ```json
 {
   "status": "ok",
@@ -60,6 +62,7 @@ Extended health check for Admin Panel integration.
 Returns dashboard statistics computed from `hyperledger_events.jsonl`.
 
 **Response:**
+
 ```json
 {
   "total_events": 42,
@@ -81,13 +84,14 @@ Returns paginated events from the JSONL file (most recent first).
 
 **Query Parameters:**
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `page` | int | 1 | Page number |
-| `page_size` | int | 50 | Events per page (max 200) |
-| `detection_method` | string | "" | Filter: `SURICATA` or `ML_MODEL` |
+| Parameter          | Type   | Default | Description                      |
+| ------------------ | ------ | ------- | -------------------------------- |
+| `page`             | int    | 1       | Page number                      |
+| `page_size`        | int    | 50      | Events per page (max 200)        |
+| `detection_method` | string | ""      | Filter: `SURICATA` or `ML_MODEL` |
 
 **Response:**
+
 ```json
 {
   "total": 42,
@@ -104,6 +108,7 @@ Returns paginated events from the JSONL file (most recent first).
 Returns connected node information.
 
 **Response:**
+
 ```json
 {
   "nodes": [
@@ -128,8 +133,9 @@ Accepts a Suricata EVE JSON alert event. Requires authentication.
 **Request body:** Raw Suricata EVE JSON object (event_type must be "alert")
 
 **Response:**
+
 ```json
-{"status": "suricata_event_written", "event_id": "evt-..."}
+{ "status": "suricata_event_written", "event_id": "evt-..." }
 ```
 
 ---
@@ -139,6 +145,7 @@ Accepts a Suricata EVE JSON alert event. Requires authentication.
 Accepts CICFlowMeter flow features for ML prediction. Requires authentication.
 
 **Request body:**
+
 ```json
 {
   "src_ip": "192.168.56.129",
@@ -160,11 +167,13 @@ Accepts CICFlowMeter flow features for ML prediction. Requires authentication.
 ```
 
 **Response (benign):**
+
 ```json
-{"status": "benign_no_event", "prediction": "Normal"}
+{ "status": "benign_no_event", "prediction": "Normal" }
 ```
 
 **Response (attack):**
+
 ```json
 {
   "status": "attack_event_written",
@@ -225,4 +234,3 @@ The Next.js Admin Panel proxies API calls through:
 ```
 
 This avoids exposing the backend URL and node tokens to the browser.
-

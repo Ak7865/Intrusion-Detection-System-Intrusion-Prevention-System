@@ -30,7 +30,11 @@ export type IpsEvent = {
   event_id: string;
   event_type: string;
   timestamp: string;
-  organisation: { organisation_id: string; organisation_name: string; node_id: string };
+  organisation: {
+    organisation_id: string;
+    organisation_name: string;
+    node_id: string;
+  };
   detection: Detection;
   network: Network;
   response: { recommended_action: string; actual_block_status: string };
@@ -96,7 +100,7 @@ export async function fetchStats(): Promise<StatsResponse> {
 export async function fetchEvents(
   page = 1,
   pageSize = 50,
-  detectionMethod = ""
+  detectionMethod = "",
 ): Promise<EventsResponse> {
   const qs = new URLSearchParams({
     page: String(page),
@@ -126,7 +130,11 @@ async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function blockIP(ip: string, reason: string, duration_minutes = 0): Promise<void> {
+export async function blockIP(
+  ip: string,
+  reason: string,
+  duration_minutes = 0,
+): Promise<void> {
   await apiPost<unknown>("/block", { ip, reason, duration_minutes });
 }
 
@@ -134,7 +142,10 @@ export async function unblockIP(ip: string): Promise<void> {
   await apiPost<unknown>("/unblock", { ip });
 }
 
-export async function fetchBlockedIPs(): Promise<{ blocked_ips: BlockedIP[]; total: number }> {
+export async function fetchBlockedIPs(): Promise<{
+  blocked_ips: BlockedIP[];
+  total: number;
+}> {
   return apiFetch<{ blocked_ips: BlockedIP[]; total: number }>("/blocked");
 }
 
@@ -146,8 +157,14 @@ export async function rejectNode(node_id: string): Promise<unknown> {
   return apiPost<unknown>("/nodes/reject", { node_id });
 }
 
-export async function clearEvents(): Promise<{ status: string; events_removed: number }> {
-  return apiPost<{ status: string; events_removed: number }>("/events/clear", {});
+export async function clearEvents(): Promise<{
+  status: string;
+  events_removed: number;
+}> {
+  return apiPost<{ status: string; events_removed: number }>(
+    "/events/clear",
+    {},
+  );
 }
 
 // ── Formatting helpers ─────────────────────────────────────────────────────────
@@ -171,4 +188,3 @@ export function severityFromEvent(evt: IpsEvent): string {
   // Legacy events (pre-classification_status) default to medium
   return "medium";
 }
-

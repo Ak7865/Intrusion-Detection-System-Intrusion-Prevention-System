@@ -46,6 +46,7 @@ connection tuple (192.168.56.1:8765) to avoid forwarding self-generated traffic.
 **File:** `integration/node_a_suricata/eve_forwarder.py`
 
 The forwarder:
+
 1. Waits for `/var/log/suricata/eve.json` to exist
 2. Seeks to end of file (skips historical events)
 3. Tails the file, reading new lines
@@ -56,11 +57,11 @@ The forwarder:
 
 ### Environment Variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `SURICATA_EVE` | `/var/log/suricata/eve.json` | EVE log path |
-| `IPS_API_URL` | `http://192.168.56.1:8765/suricata` | Central API endpoint |
-| `IPS_NODE_TOKEN_FILE` | `/etc/ips/node-a.token` | Node token file path |
+| Variable              | Default                             | Description          |
+| --------------------- | ----------------------------------- | -------------------- |
+| `SURICATA_EVE`        | `/var/log/suricata/eve.json`        | EVE log path         |
+| `IPS_API_URL`         | `http://192.168.56.1:8765/suricata` | Central API endpoint |
+| `IPS_NODE_TOKEN_FILE` | `/etc/ips/node-a.token`             | Node token file path |
 
 ### Node Token Setup
 
@@ -84,22 +85,22 @@ sudo systemctl restart suricata
 
 ## Common Suricata Alert Categories
 
-| Category | Description |
-|---|---|
-| A Network Trojan was detected | Malware/botnet traffic |
-| Attempted Information Leak | Recon/scanning |
-| Potential Corporate Privacy Violation | ET INFO alerts |
-| Attempted Administrator Privilege Gain | Privilege escalation |
-| Web Application Attack | SQL injection, XSS, etc. |
-| Attempted Denial of Service | DoS/DDoS patterns |
+| Category                               | Description              |
+| -------------------------------------- | ------------------------ |
+| A Network Trojan was detected          | Malware/botnet traffic   |
+| Attempted Information Leak             | Recon/scanning           |
+| Potential Corporate Privacy Violation  | ET INFO alerts           |
+| Attempted Administrator Privilege Gain | Privilege escalation     |
+| Web Application Attack                 | SQL injection, XSS, etc. |
+| Attempted Denial of Service            | DoS/DDoS patterns        |
 
 ## Deduplication
 
 The Central API deduplicates Suricata alerts using a 3-minute cache keyed on:
+
 - `node_id`
 - `flow_id`
 - `signature_id`
 - `src_ip`, `dest_ip`, `src_port`, `dest_port`, `protocol`
 
 Bidirectional flow matching is supported.
-

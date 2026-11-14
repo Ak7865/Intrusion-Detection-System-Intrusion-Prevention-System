@@ -5,7 +5,9 @@ export default function ReportsPage() {
       <div className="page-head">
         <div>
           <h3>Reports</h3>
-          <p className="b3 muted">Generated summaries for review and sharing.</p>
+          <p className="b3 muted">
+            Generated summaries for review and sharing.
+          </p>
         </div>
       </div>
       <div className="card" style={{ padding: 24 }}>
@@ -14,7 +16,10 @@ export default function ReportsPage() {
           No automated report generator is currently connected. Use the data
           available from the following live pages to build your own reports:
         </p>
-        <ul className="b3 muted" style={{ paddingLeft: 20, lineHeight: "1.8em" }}>
+        <ul
+          className="b3 muted"
+          style={{ paddingLeft: 20, lineHeight: "1.8em" }}
+        >
           <li>
             <a href="/dashboard">Dashboard</a> — real-time statistics from{" "}
             <code>hyperledger_events.jsonl</code>.
@@ -31,8 +36,7 @@ export default function ReportsPage() {
           </li>
         </ul>
         <p className="b3 muted" style={{ marginTop: 16 }}>
-          The IPS API exposes{" "}
-          <code>GET /api/events</code> and{" "}
+          The IPS API exposes <code>GET /api/events</code> and{" "}
           <code>GET /api/stats</code> endpoints which can be consumed by
           external reporting tools.
         </p>
@@ -40,4 +44,3 @@ export default function ReportsPage() {
     </>
   );
 }
-

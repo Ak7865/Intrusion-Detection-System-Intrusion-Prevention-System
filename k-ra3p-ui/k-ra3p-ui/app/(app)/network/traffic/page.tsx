@@ -4,7 +4,12 @@
 // This page shows real recent events filtered to ML-detected flows instead of fake traffic tables.
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { fetchEvents, formatTimestamp, severityFromEvent, type IpsEvent } from "@/lib/api";
+import {
+  fetchEvents,
+  formatTimestamp,
+  severityFromEvent,
+  type IpsEvent,
+} from "@/lib/api";
 
 const REFRESH_MS = 30_000;
 
@@ -40,7 +45,8 @@ export default function TrafficPage() {
         <div>
           <h3>Traffic Flows</h3>
           <p className="b3 muted">
-            ML-analysed network flows from CICFlowMeter — {total} total ML events
+            ML-analysed network flows from CICFlowMeter — {total} total ML
+            events
           </p>
         </div>
       </div>
@@ -48,8 +54,8 @@ export default function TrafficPage() {
       <div className="card" style={{ padding: "12px 20px", marginBottom: 12 }}>
         <p className="b3 muted">
           Flows are submitted by sensor nodes via <code>POST /flow</code> after
-          CICFlowMeter feature extraction. Only flows where the ML model predicts
-          an attack are stored. Benign flows are not recorded.
+          CICFlowMeter feature extraction. Only flows where the ML model
+          predicts an attack are stored. Benign flows are not recorded.
         </p>
       </div>
 
@@ -61,7 +67,9 @@ export default function TrafficPage() {
 
       <div className="card" style={{ overflowX: "auto" }}>
         {loading && events.length === 0 ? (
-          <p className="b3 muted" style={{ padding: 16 }}>Loading…</p>
+          <p className="b3 muted" style={{ padding: 16 }}>
+            Loading…
+          </p>
         ) : events.length === 0 ? (
           <p className="b3 muted" style={{ padding: 16 }}>
             No ML-detected flow events yet. Submit flows via CICFlowMeter →{" "}
@@ -85,7 +93,10 @@ export default function TrafficPage() {
             <tbody>
               {events.map((evt) => {
                 const sev = severityFromEvent(evt);
-                const ml = evt.detection?.machine_learning as Record<string, unknown>;
+                const ml = evt.detection?.machine_learning as Record<
+                  string,
+                  unknown
+                >;
                 const conf =
                   ml?.ensemble_confidence != null
                     ? `${(Number(ml.ensemble_confidence) * 100).toFixed(1)}%`
@@ -113,4 +124,3 @@ export default function TrafficPage() {
     </>
   );
 }
-

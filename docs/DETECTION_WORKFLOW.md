@@ -40,10 +40,10 @@ Admin Panel → Threats → Alerts
 ### Suricata Event Classification
 
 | Suricata Category | classification_status | attack_detected |
-|---|---|---|
-| ET INFO … | INFORMATIONAL | false |
-| Any other alert | REQUIRES_REVIEW | false |
-| (None — ML only) | MODEL_PREDICTED | true |
+| ----------------- | --------------------- | --------------- |
+| ET INFO …         | INFORMATIONAL         | false           |
+| Any other alert   | REQUIRES_REVIEW       | false           |
+| (None — ML only)  | MODEL_PREDICTED       | true            |
 
 **IMPORTANT:** Suricata alerts do NOT set `attack_detected: true` by default.
 They are classified as requiring human review.
@@ -95,13 +95,13 @@ Admin Panel → Threats → Alerts (detection: ML_MODEL)
 
 ### ML Models
 
-| Model | File | Purpose |
-|---|---|---|
-| Binary Random Forest | ml/models/binary/binary_random_forest.joblib | Is it an attack? |
-| Binary XGBoost | ml/models/binary/binary_xgboost.json | Is it an attack? |
-| Multiclass Random Forest | ml/models/multiclass/multiclass_random_forest.joblib | What type? |
-| Multiclass XGBoost | ml/models/multiclass/multiclass_xgboost.json | What type? |
-| Label Encoder | ml/models/multiclass/multiclass_xgboost_label_encoder.joblib | Decode class index |
+| Model                    | File                                                         | Purpose            |
+| ------------------------ | ------------------------------------------------------------ | ------------------ |
+| Binary Random Forest     | ml/models/binary/binary_random_forest.joblib                 | Is it an attack?   |
+| Binary XGBoost           | ml/models/binary/binary_xgboost.json                         | Is it an attack?   |
+| Multiclass Random Forest | ml/models/multiclass/multiclass_random_forest.joblib         | What type?         |
+| Multiclass XGBoost       | ml/models/multiclass/multiclass_xgboost.json                 | What type?         |
+| Label Encoder            | ml/models/multiclass/multiclass_xgboost_label_encoder.joblib | Decode class index |
 
 **Attack classes (multiclass):** Normal, Botnet, Brute Force, DoS/DDoS, Infiltration, PortScan, Web Attack, OTHER_RARE
 
@@ -133,4 +133,3 @@ for 180 seconds.
 All events are stored in `runtime/events/hyperledger_events.jsonl`.
 No Hyperledger Fabric network is connected.
 `blockchain_status` is reported as `PENDING_NOT_SUBMITTED`.
-

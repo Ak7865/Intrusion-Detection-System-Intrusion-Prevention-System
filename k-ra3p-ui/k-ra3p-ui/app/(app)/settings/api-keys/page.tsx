@@ -14,16 +14,17 @@ export default function ApiKeysPage() {
           in the server environment. The raw tokens are never exposed through
           this interface.
         </p>
-        <ul className="b3 muted" style={{ paddingLeft: 20, lineHeight: "1.8em" }}>
+        <ul
+          className="b3 muted"
+          style={{ paddingLeft: 20, lineHeight: "1.8em" }}
+        >
           <li>
-            Tokens are stored as hashes in{" "}
-            <code>IPS_NODE_TOKEN_HASHES</code> in the server{" "}
-            <code>.env</code> file.
+            Tokens are stored as hashes in <code>IPS_NODE_TOKEN_HASHES</code> in
+            the server <code>.env</code> file.
           </li>
           <li>
-            Each node uses its token in the{" "}
-            <code>X-Node-Token</code> header when posting to{" "}
-            <code>/flow</code> or <code>/suricata</code>.
+            Each node uses its token in the <code>X-Node-Token</code> header
+            when posting to <code>/flow</code> or <code>/suricata</code>.
           </li>
           <li>
             To rotate a token, generate a new secret, hash it with SHA-256, and
@@ -34,4 +35,3 @@ export default function ApiKeysPage() {
     </>
   );
 }
-

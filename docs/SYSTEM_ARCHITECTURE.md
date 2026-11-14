@@ -43,15 +43,16 @@ This project implements a **Decentralized, Self-Learning Intrusion Prevention Sy
 
 ## Network Topology (Lab)
 
-| Host | IP | Role |
-|---|---|---|
-| Windows Host | 192.168.56.1 | Central IPS API, ML models |
-| Linux VM (Node A) | 192.168.56.128 | Suricata, CICFlowMeter |
-| Target App (Juice Shop) | 192.168.56.129:3000 | Test target |
+| Host                    | IP                  | Role                       |
+| ----------------------- | ------------------- | -------------------------- |
+| Windows Host            | 192.168.56.1        | Central IPS API, ML models |
+| Linux VM (Node A)       | 192.168.56.128      | Suricata, CICFlowMeter     |
+| Target App (Juice Shop) | 192.168.56.129:3000 | Test target                |
 
 ## Component Responsibilities
 
 ### Application 1: Attack Simulator (`attack_simulator/`)
+
 - Standalone GUI desktop application
 - Generates controlled test traffic only
 - Does NOT write to JSONL event file
@@ -59,6 +60,7 @@ This project implements a **Decentralized, Self-Learning Intrusion Prevention Sy
 - Restricted to private lab IP addresses
 
 ### Application 2: Detection Backend (`integration/`)
+
 - **Suricata**: Signature-based detection (Linux Node A)
 - **eve_forwarder.py**: Tails Suricata EVE JSON → POST to central API
 - **server.py**: Central IPS API — receives Suricata events, runs ML inference
@@ -66,6 +68,7 @@ This project implements a **Decentralized, Self-Learning Intrusion Prevention Sy
 - Writes all events to `runtime/events/hyperledger_events.jsonl`
 
 ### Application 3: Admin Panel (`k-ra3p-ui/`)
+
 - Next.js 14 web application
 - Reads live data from Central IPS API via `/api/ips/*` proxy routes
 - Displays real events, stats, and node information
@@ -97,4 +100,3 @@ Traffic → Network Interface
 `hyperledger_events.jsonl` is the event storage file.
 No live Hyperledger Fabric network is configured.
 All `blockchain_status` fields are reported as `PENDING_NOT_SUBMITTED`.
-

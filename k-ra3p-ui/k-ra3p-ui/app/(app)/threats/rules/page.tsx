@@ -25,8 +25,8 @@ export default function RulesPage() {
           style={{ paddingLeft: 20, lineHeight: "1.8em" }}
         >
           <li>
-            Suricata rules live at{" "}
-            <code>/etc/suricata/rules/</code> on each Linux sensor.
+            Suricata rules live at <code>/etc/suricata/rules/</code> on each
+            Linux sensor.
           </li>
           <li>
             The <code>eve_forwarder.py</code> script reads Suricata EVE JSON and
@@ -46,15 +46,18 @@ export default function RulesPage() {
 
       <div
         className="card"
-        style={{ padding: 16, marginTop: 12, borderLeft: "3px solid var(--sev-high, #f80)" }}
+        style={{
+          padding: 16,
+          marginTop: 12,
+          borderLeft: "3px solid var(--sev-high, #f80)",
+        }}
       >
         <p className="b3 muted">
           <strong>Planned:</strong> A future API extension will allow reading
-          deployed rule counts and status from connected nodes. This page will be
-          updated when that endpoint is available.
+          deployed rule counts and status from connected nodes. This page will
+          be updated when that endpoint is available.
         </p>
       </div>
     </>
   );
 }
-

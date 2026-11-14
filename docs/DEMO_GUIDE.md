@@ -3,6 +3,7 @@
 ## Demo Overview
 
 This guide walks through a live demonstration of the complete IPS pipeline:
+
 - Attack Simulator → Network Traffic → Suricata/ML Detection → Admin Panel
 
 **Expected demo time:** 15–20 minutes
@@ -13,13 +14,13 @@ This guide walks through a live demonstration of the complete IPS pipeline:
 
 Ensure all three applications are running:
 
-| App | Location | Command |
-|---|---|---|
-| Central IPS API | Windows host | `.venv\Scripts\python.exe integration\windows_ml_service\server.py` |
-| Admin Panel | Windows host | `cd k-ra3p-ui\k-ra3p-ui && npm run dev` |
-| Suricata | Linux Node A | `sudo suricata -c /etc/suricata/suricata.yaml -i eth1` |
-| EVE Forwarder | Linux Node A | `python3 integration/node_a_suricata/eve_forwarder.py` |
-| Attack Simulator | Windows host | `attack_simulator\dist\IPS_Attack_Simulator.exe` |
+| App              | Location     | Command                                                             |
+| ---------------- | ------------ | ------------------------------------------------------------------- |
+| Central IPS API  | Windows host | `.venv\Scripts\python.exe integration\windows_ml_service\server.py` |
+| Admin Panel      | Windows host | `cd k-ra3p-ui\k-ra3p-ui && npm run dev`                             |
+| Suricata         | Linux Node A | `sudo suricata -c /etc/suricata/suricata.yaml -i eth1`              |
+| EVE Forwarder    | Linux Node A | `python3 integration/node_a_suricata/eve_forwarder.py`              |
+| Attack Simulator | Windows host | `attack_simulator\dist\IPS_Attack_Simulator.exe`                    |
 
 ---
 
@@ -109,25 +110,24 @@ Ensure all three applications are running:
 
 ## Key Points to Highlight
 
-| Point | Evidence |
-|---|---|
-| Real detection data | 10,243+ Suricata events in JSONL |
-| No hardcoded stats | Dashboard reads from API in real-time |
-| Separation of concerns | 3 independent apps, different ports |
-| Authorisation check | Simulator rejects non-private IPs |
-| No fake blocking | Blocked IPs page clearly states NOT_EXECUTED |
-| No false blockchain | Status shown as PENDING_NOT_SUBMITTED |
-| Deduplication | Same alert not written twice (180s cache) |
+| Point                  | Evidence                                     |
+| ---------------------- | -------------------------------------------- |
+| Real detection data    | 10,243+ Suricata events in JSONL             |
+| No hardcoded stats     | Dashboard reads from API in real-time        |
+| Separation of concerns | 3 independent apps, different ports          |
+| Authorisation check    | Simulator rejects non-private IPs            |
+| No fake blocking       | Blocked IPs page clearly states NOT_EXECUTED |
+| No false blockchain    | Status shown as PENDING_NOT_SUBMITTED        |
+| Deduplication          | Same alert not written twice (180s cache)    |
 
 ---
 
 ## Troubleshooting
 
-| Problem | Solution |
-|---|---|
-| Admin Panel shows "Backend unreachable" | Start `server.py`, check port 8765 |
-| No events in Alerts page | Check `runtime/events/hyperledger_events.jsonl` exists |
-| Simulator rejects IP | Target must be a private RFC 1918 address |
-| Suricata events not appearing | Check `eve_forwarder.py` is running on Linux Node A |
-| Node not showing in Nodes page | Node must POST at least one event to appear |
-
+| Problem                                 | Solution                                               |
+| --------------------------------------- | ------------------------------------------------------ |
+| Admin Panel shows "Backend unreachable" | Start `server.py`, check port 8765                     |
+| No events in Alerts page                | Check `runtime/events/hyperledger_events.jsonl` exists |
+| Simulator rejects IP                    | Target must be a private RFC 1918 address              |
+| Suricata events not appearing           | Check `eve_forwarder.py` is running on Linux Node A    |
+| Node not showing in Nodes page          | Node must POST at least one event to appear            |

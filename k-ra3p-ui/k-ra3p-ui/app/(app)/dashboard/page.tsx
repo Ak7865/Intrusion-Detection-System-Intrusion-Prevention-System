@@ -37,7 +37,9 @@ export default function Dashboard() {
   if (error)
     return (
       <div className="card" style={{ padding: 20 }}>
-        <p style={{ color: "var(--sev-critical, #e53)" }}>⚠ Backend unreachable: {error}</p>
+        <p style={{ color: "var(--sev-critical, #e53)" }}>
+          ⚠ Backend unreachable: {error}
+        </p>
         <p className="b3 muted">
           Ensure the IPS API is running on 192.168.56.1:8765 and try again.
         </p>
@@ -58,7 +60,14 @@ export default function Dashboard() {
 
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 16,
+        }}
+      >
         <h3>Dashboard</h3>
         <span className="b4 muted" style={{ fontSize: 12 }}>
           Auto-refresh every {REFRESH_MS / 1000}s
@@ -77,7 +86,10 @@ export default function Dashboard() {
       <div className="card" style={{ marginTop: 16 }}>
         <h4 style={{ padding: "16px 20px" }}>
           Recent activity
-          <span className="b4 muted" style={{ marginLeft: 8, fontWeight: 400, fontSize: 12 }}>
+          <span
+            className="b4 muted"
+            style={{ marginLeft: 8, fontWeight: 400, fontSize: 12 }}
+          >
             (live from hyperledger_events.jsonl)
           </span>
         </h4>
@@ -102,7 +114,12 @@ export default function Dashboard() {
               {recent.map((evt) => {
                 const sev = severityFromEvent(evt);
                 const src = evt.detection?.detection_source ?? "—";
-                const badge = src === "SURICATA" ? "sev-low" : src === "ML_MODEL" ? "sev-high" : "";
+                const badge =
+                  src === "SURICATA"
+                    ? "sev-low"
+                    : src === "ML_MODEL"
+                      ? "sev-high"
+                      : "";
                 const status = evt.detection?.classification_status ?? "—";
                 return (
                   <tr key={evt.event_id}>

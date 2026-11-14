@@ -6,7 +6,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND = process.env.IPS_API_URL || "http://192.168.56.1:8765";
 
-async function proxyRequest(req: NextRequest, pathSegments: string[], method: string) {
+async function proxyRequest(
+  req: NextRequest,
+  pathSegments: string[],
+  method: string,
+) {
   const sub = pathSegments.join("/");
   const search = req.nextUrl.search || "";
   const url = `${BACKEND}/api/${sub}${search}`;
@@ -21,7 +25,9 @@ async function proxyRequest(req: NextRequest, pathSegments: string[], method: st
       const body = await req.text();
       if (body) {
         (init as Record<string, unknown>).body = body;
-        (init as Record<string, unknown>).headers = { "Content-Type": "application/json" };
+        (init as Record<string, unknown>).headers = {
+          "Content-Type": "application/json",
+        };
       }
     }
     const upstream = await fetch(url, init);
@@ -31,36 +37,35 @@ async function proxyRequest(req: NextRequest, pathSegments: string[], method: st
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
       { error: "backend_unreachable", detail: message },
-      { status: 503 }
+      { status: 503 },
     );
   }
 }
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: { path: string[] } },
 ) {
   return proxyRequest(req, params.path, "GET");
 }
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: { path: string[] } },
 ) {
   return proxyRequest(req, params.path, "POST");
 }
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: { path: string[] } },
 ) {
   return proxyRequest(req, params.path, "DELETE");
 }
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: { path: string[] } },
 ) {
   return proxyRequest(req, params.path, "PUT");
 }
-

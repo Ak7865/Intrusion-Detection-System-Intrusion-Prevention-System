@@ -1,7 +1,12 @@
 // audit — Tamper-evident event log (real data from JSONL)
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { fetchEvents, clearEvents, formatTimestamp, type IpsEvent } from "@/lib/api";
+import {
+  fetchEvents,
+  clearEvents,
+  formatTimestamp,
+  type IpsEvent,
+} from "@/lib/api";
 
 const PAGE_SIZE = 50;
 const REFRESH_MS = 30_000;
@@ -15,22 +20,19 @@ export default function AuditPage() {
   const [clearing, setClearing] = useState(false);
   const [clearMsg, setClearMsg] = useState<string | null>(null);
 
-  const load = useCallback(
-    async (p: number) => {
-      setLoading(true);
-      try {
-        const res = await fetchEvents(p, PAGE_SIZE, "");
-        setEvents(res.events);
-        setTotal(res.total);
-        setError(null);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Backend unreachable");
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
+  const load = useCallback(async (p: number) => {
+    setLoading(true);
+    try {
+      const res = await fetchEvents(p, PAGE_SIZE, "");
+      setEvents(res.events);
+      setTotal(res.total);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Backend unreachable");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     load(page);
@@ -41,7 +43,12 @@ export default function AuditPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   async function handleClearEvents() {
-    if (!confirm("⚠️ Clear ALL events from hyperledger_events.jsonl?\n\nOnly do this during testing. This cannot be undone.")) return;
+    if (
+      !confirm(
+        "⚠️ Clear ALL events from hyperledger_events.jsonl?\n\nOnly do this during testing. This cannot be undone.",
+      )
+    )
+      return;
     setClearing(true);
     setClearMsg(null);
     try {
@@ -63,7 +70,8 @@ export default function AuditPage() {
           <h3>Audit Log</h3>
           <p className="b3 muted">
             Append-only event record from{" "}
-            <code>runtime/events/hyperledger_events.jsonl</code> — {total} entries
+            <code>runtime/events/hyperledger_events.jsonl</code> — {total}{" "}
+            entries
           </p>
         </div>
         <div>
@@ -71,11 +79,17 @@ export default function AuditPage() {
             onClick={handleClearEvents}
             disabled={clearing || total === 0}
             style={{
-              padding: "7px 14px", borderRadius: 6, border: "none",
-              background: total === 0 ? "var(--surface-2,#1e2130)" : "var(--sev-critical,#e53)",
+              padding: "7px 14px",
+              borderRadius: 6,
+              border: "none",
+              background:
+                total === 0
+                  ? "var(--surface-2,#1e2130)"
+                  : "var(--sev-critical,#e53)",
               color: total === 0 ? "var(--muted,#888)" : "#fff",
               cursor: clearing || total === 0 ? "not-allowed" : "pointer",
-              fontSize: 12, fontWeight: 600
+              fontSize: 12,
+              fontWeight: 600,
             }}
             title="Testing only — clears hyperledger_events.jsonl"
           >
@@ -85,14 +99,25 @@ export default function AuditPage() {
       </div>
 
       {clearMsg && (
-        <div className="card" style={{ padding: 12, marginBottom: 12, background: "var(--surface-2,#1e2130)" }}>
+        <div
+          className="card"
+          style={{
+            padding: 12,
+            marginBottom: 12,
+            background: "var(--surface-2,#1e2130)",
+          }}
+        >
           <p className="b3">{clearMsg}</p>
         </div>
       )}
 
       <div
         className="card"
-        style={{ padding: "12px 20px", marginBottom: 12, borderLeft: "3px solid var(--sev-low, #3c3)" }}
+        style={{
+          padding: "12px 20px",
+          marginBottom: 12,
+          borderLeft: "3px solid var(--sev-low, #3c3)",
+        }}
       >
         <p className="b3 muted">
           <strong>Storage:</strong> Events are stored append-only in{" "}
@@ -111,9 +136,13 @@ export default function AuditPage() {
 
       <div className="card" style={{ overflowX: "auto" }}>
         {loading && events.length === 0 ? (
-          <p className="b3 muted" style={{ padding: 16 }}>Loading…</p>
+          <p className="b3 muted" style={{ padding: 16 }}>
+            Loading…
+          </p>
         ) : events.length === 0 ? (
-          <p className="b3 muted" style={{ padding: 16 }}>No events yet.</p>
+          <p className="b3 muted" style={{ padding: 16 }}>
+            No events yet.
+          </p>
         ) : (
           <table>
             <thead>
@@ -134,8 +163,8 @@ export default function AuditPage() {
                   src === "SURICATA"
                     ? "sev-low"
                     : src === "ML_MODEL"
-                    ? "sev-high"
-                    : "";
+                      ? "sev-high"
+                      : "";
                 const offset = (page - 1) * PAGE_SIZE;
                 return (
                   <tr key={evt.event_id}>
@@ -163,7 +192,14 @@ export default function AuditPage() {
       </div>
 
       {totalPages > 1 && (
-        <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginTop: 12,
+            alignItems: "center",
+          }}
+        >
           <button
             className="btn"
             disabled={page <= 1}
@@ -186,4 +222,3 @@ export default function AuditPage() {
     </>
   );
 }
-

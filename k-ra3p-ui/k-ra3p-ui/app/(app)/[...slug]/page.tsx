@@ -21,10 +21,10 @@ const tone = (v: string) =>
   /^(critical|revoked|offline)$/.test(v)
     ? "sev-critical"
     : /^(high|medium|open|disabled)$/.test(v)
-    ? "sev-high"
-    : /^(low|active|online|deployed|verified|ready|fixed)$/.test(v)
-    ? "sev-low"
-    : "";
+      ? "sev-high"
+      : /^(low|active|online|deployed|verified|ready|fixed)$/.test(v)
+        ? "sev-low"
+        : "";
 
 export default function Page({ params }: { params: { slug: string[] } }) {
   const slug = params.slug.join("/");
