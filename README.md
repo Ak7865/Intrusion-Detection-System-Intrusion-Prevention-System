@@ -388,3 +388,38 @@ export IPS_NODE_TOKEN_FILE=~/node-a.token
 | Network Features   | CICFlowMeter (11 flow features)          |
 | Training Data      | CIC-IDS-2017                             |
 | Lab Infrastructure | VMware Workstation, Host-only networking |
+
+
+Pre-Demo Step-by-Step Instructions
+1. On Kali Nodes (Node A & Node B)
+
+Open a terminal on both Kali VMs and restart the services to load the updated forwarder filter:
+
+bash
+# Restart Eve Forwarder with the updated noise filter
+bash /mnt/hgfs/IPS-Project/start.sh
+
+(Optional: Before presenting, run bash /mnt/hgfs/IPS-Project/clear_ml_rules.sh if you want to clear previous ML-generated rules).
+
+2. On Windows Host
+Clean Test State: Double-click CLEAR_DEMO_DATA.bat (or click "Clear All Events" on the Admin Panel Audit page).
+Open Admin Panel: Navigate to http://localhost:3000
+ (or http://192.168.56.1:3000).
+Launch Simulator: Run the freshly compiled executable: IPS_Attack_Simulator.exe
+3. Demonstrating to the Teacher
+Node Approval Flow:
+Go to Network → Connected Nodes.
+Show that Node B (first node) was auto-approved with 0 required approvals.
+Show that Node A (second node) is marked PENDING_APPROVAL and requires unanimous approval. Click "Approve Node".
+DoS Attack Simulation:
+In IPS_Attack_Simulator.exe, select DoS / High-Volume Traffic and click Start.
+Show the teacher the Dashboard: an event appears with badge ML_MODEL, Attack Type DoS/DDoS, and Status MODEL_PREDICTED.
+Go to Threats → Detection Rules: show the new self-learning Suricata signature synthesized by the ML model.
+Brute Force Simulation:
+Select Brute Force and click Start.
+Show the event on the dashboard: badge ML_MODEL, Attack Type Brute Force.
+SQL Injection Simulation:
+Select SQL Injection and click Start.
+Show the event on the dashboard: badge ML_MODEL, Attack Type Web Attack.
+Temporary IP Blocking:
+In Threats → Alerts, click the Block IP button next to any malicious event, set the duration (or permanent), and verify it in Threats → Blocked IPs.

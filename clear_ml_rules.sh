@@ -19,3 +19,4 @@ elif systemctl is-active --quiet suricata; then
 fi
 
 echo "[reset] Done! ML model will now detect attacks fresh without Suricata rule interception."
+

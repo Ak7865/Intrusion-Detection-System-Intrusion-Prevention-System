@@ -23,3 +23,4 @@ echo   CLEAN STATE READY FOR DEMONSTRATION!
 echo   Note: On Kali Node A/B, run: bash /mnt/hgfs/IPS-Project/clear_ml_rules.sh
 echo ===================================================
 pause
+
