@@ -82,9 +82,10 @@ def generate_rule(event: dict) -> str | None:
             f'sid:{sid}; rev:1;)'
         )
     else:
+        label = det.get("attack_type", "Unknown")
         rule = (
             f'alert {proto} {src_ip} any -> any any '
-            f'(msg:"IPS ML-Generated: Attack from {src_ip} ({det.get(\"attack_type\",\"Unknown\")})"; '
+            f'(msg:"IPS ML-Generated: Attack from {src_ip} ({label})"; '
             f'classtype:misc-attack; '
             f'sid:{sid}; rev:1;)'
         )
