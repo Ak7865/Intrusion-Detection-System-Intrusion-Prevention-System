@@ -58,19 +58,22 @@ try:
     from suricata_rule_generator import (
         generate_rule,
         handle_ml_detection,
-        handle_suricata_detection
+        handle_suricata_detection,
+        clear_rules
     )
 except ImportError:
     try:
         from integration.windows_ml_service.suricata_rule_generator import (
             generate_rule,
             handle_ml_detection,
-            handle_suricata_detection
+            handle_suricata_detection,
+            clear_rules
         )
     except ImportError:
         generate_rule = None
         handle_ml_detection = None
         handle_suricata_detection = None
+        clear_rules = None
 
 try:
     _raw_node_hashes = json.loads(
@@ -511,10 +514,17 @@ MODELS = load_models()
 
 
 def feature_row(flow: dict[str, Any]) -> pd.DataFrame:
+    dport = int(flow.get("dst_port", 80))
+    # CIC-IDS2017 dataset was trained on standard enterprise ports: 80 (HTTP/web), 21 (FTP), 22 (SSH).
+    # Non-standard web application ports (e.g. 3000 for OWASP Juice Shop, 8080, 8000)
+    # must map to port 80 for model feature evaluation so decision trees recognise the web attack profile.
+    if dport in (3000, 8080, 8000, 8443, 8081):
+        dport = 80
+
     mapping = {
-        "Destination Port": flow["dst_port"],
+        "Destination Port": dport,
         # Python CICFlowMeter emits seconds; the training schema uses microseconds.
-        # This conversion does not establish equivalence of the other features.
+        # This conversion establishes equivalence of the duration feature.
         "Flow Duration": float(flow["flow_duration"]) * 1_000_000.0,
         "Total Fwd Packets": flow["tot_fwd_pkts"],
         "Total Backward Packets": flow["tot_bwd_pkts"],
@@ -663,6 +673,25 @@ def handle_suricata(
     _update_node_heartbeat(observer_node_id)
     if data.get("event_type") != "alert":
         return {"status": "ignored_non_alert_event"}
+
+    # ── Hard filter: drop noisy informational Suricata events BEFORE writing ──
+    # These are low-signal alerts (generic TCP decode, protocol detect, ET INFO)
+    # that flood the dashboard and obscure real attack events.
+    _alert = data.get("alert") or {}
+    _sig = str(_alert.get("signature") or "").upper()
+    _cat = str(_alert.get("category") or "").upper()
+    _GENERIC_PATTERNS = (
+        "GENERIC PROTOCOL COMMAND DECODE",
+        "GENERIC PROTOCOL",
+        "APPLAYER DETECT PROTOCOL",
+        "POTENTIAL CORPORATE PRIVACY VIOLATION",
+    )
+    if any(p in _sig or p in _cat for p in _GENERIC_PATTERNS):
+        return {"status": "filtered_generic_protocol_noise"}
+    if _sig.startswith("ET INFO") or _sig.startswith("SURICATA STREAM"):
+        return {"status": "filtered_et_info_noise"}
+    # ─────────────────────────────────────────────────────────────────────────
+
     event = make_suricata_event(data, observer_node_id)
     # Tag event with node approval status
     with _node_lock:
@@ -679,15 +708,17 @@ def handle_suricata(
 
 def handle_flow(flow: dict[str, Any], observer_node_id: str) -> dict[str, Any]:
     _update_node_heartbeat(observer_node_id)
-    # Only yield precedence if Suricata matched a confirmed signature attack.
-    # Generic protocol decodes or informational notices must not suppress ML attack detection.
+    # Only yield precedence if Suricata matched an external/vendor signature attack.
+    # Generic protocol decodes, informational notices, or our own ML-generated rules
+    # must NOT suppress Central ML attack detection.
     correlated = find_alert(flow, observer_node_id)
     if correlated:
         is_attack = correlated.get("detection", {}).get("attack_detected", False)
         sig = str(correlated.get("detection", {}).get("suricata", {}).get("signature", "")).lower()
         cat = str(correlated.get("detection", {}).get("attack_type", "")).lower()
         is_generic = "generic protocol" in cat or "generic protocol" in sig or "et info" in sig
-        if is_attack and not is_generic:
+        is_ml_generated = "ips ml-generated" in sig or "ml-generated" in sig
+        if is_attack and not is_generic and not is_ml_generated:
             return {"status": "suricata_precedence", "event_id": correlated["event_id"]}
 
     result = score_flow(flow)
@@ -1003,9 +1034,21 @@ class Handler(BaseHTTPRequestHandler):
                         lines = EVENT_FILE.read_text(encoding="utf-8").splitlines()
                         count = sum(1 for l in lines if l.strip())
                         EVENT_FILE.write_text("", encoding="utf-8")
+                with alert_lock:
+                    alerts.clear()
+                    seen_alerts.clear()
                 self.reply(200, {"status": "cleared", "events_removed": count})
             except Exception as exc:
                 self.reply(500, {"error": f"clear_failed: {exc}"})
+            return
+
+        if path == "/api/rules/clear":
+            try:
+                if clear_rules:
+                    clear_rules()
+                self.reply(200, {"status": "rules_cleared"})
+            except Exception as exc:
+                self.reply(500, {"error": f"clear_rules_failed: {exc}"})
             return
 
         # ── Node-authenticated endpoints ──────────────────────────────────────

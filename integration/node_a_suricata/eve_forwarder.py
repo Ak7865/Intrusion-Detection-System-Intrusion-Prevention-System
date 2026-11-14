@@ -80,7 +80,12 @@ def is_generic_protocol_decode(event):
     return (
         "generic protocol command decode" in sig
         or "generic protocol command decode" in cat
+        or "generic protocol" in cat
+        or "potential corporate privacy violation" in cat
+        or "potential corporate privacy violation" in sig
         or "applayer detect protocol" in sig
+        or sig.startswith("et info")
+        or sig.startswith("suricata stream")
     )
 
 

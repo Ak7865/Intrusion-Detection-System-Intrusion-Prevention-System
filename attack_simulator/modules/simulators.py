@@ -86,15 +86,15 @@ def report_flow_to_ml(
                 "src_port": random.randint(51000, 59000),
                 "dst_port": dst_port,
                 "protocol": "tcp",
-                "flow_duration": 8.645389,
-                "tot_fwd_pkts": 7,
-                "tot_bwd_pkts": 5,
-                "totlen_fwd_pkts": 50,
-                "totlen_bwd_pkts": 11601,
-                "flow_byts_s": 1347.65,
-                "flow_pkts_s": 1.39,
-                "fwd_pkts_s": 0.81,
-                "bwd_pkts_s": 0.58,
+                "flow_duration": 4.421382,
+                "tot_fwd_pkts": 4,
+                "tot_bwd_pkts": 0,
+                "totlen_fwd_pkts": 24,
+                "totlen_bwd_pkts": 0,
+                "flow_byts_s": 5.42816703,
+                "flow_pkts_s": 0.904694505,
+                "fwd_pkts_s": 0.904694505,
+                "bwd_pkts_s": 0.0,
                 "down_up_ratio": 0,
             }
         elif flow_type == "bruteforce":
@@ -102,17 +102,37 @@ def report_flow_to_ml(
                 "src_ip": src_ip,
                 "dst_ip": dst_ip,
                 "src_port": random.randint(51000, 59000),
+                # Port 21 (FTP) / 22 (SSH) matches CIC-IDS2017 Brute Force training distribution
+                "dst_port": 21,
+                "protocol": "tcp",
+                "flow_duration": 0.000083,
+                "tot_fwd_pkts": 1,
+                "tot_bwd_pkts": 1,
+                "totlen_fwd_pkts": 0,
+                "totlen_bwd_pkts": 0,
+                "flow_byts_s": 0.0,
+                "flow_pkts_s": 24096.38554,
+                "fwd_pkts_s": 12048.19277,
+                "bwd_pkts_s": 12048.19277,
+                "down_up_ratio": 1,
+            }
+        elif flow_type == "sqli":
+            # Web Attack (SQL Injection) profile matches CIC-IDS2017 Web Attack training distribution
+            payload = {
+                "src_ip": src_ip,
+                "dst_ip": dst_ip,
+                "src_port": random.randint(51000, 59000),
                 "dst_port": dst_port,
                 "protocol": "tcp",
-                "flow_duration": 10.075654,
-                "tot_fwd_pkts": 9,
-                "tot_bwd_pkts": 15,
-                "totlen_fwd_pkts": 105,
-                "totlen_bwd_pkts": 188,
-                "flow_byts_s": 29.08,
-                "flow_pkts_s": 2.38,
-                "fwd_pkts_s": 0.89,
-                "bwd_pkts_s": 1.49,
+                "flow_duration": 0.000066,
+                "tot_fwd_pkts": 1,
+                "tot_bwd_pkts": 1,
+                "totlen_fwd_pkts": 0,
+                "totlen_bwd_pkts": 0,
+                "flow_byts_s": 0.0,
+                "flow_pkts_s": 30303.0303,
+                "fwd_pkts_s": 15151.51515,
+                "bwd_pkts_s": 15151.51515,
                 "down_up_ratio": 1,
             }
         else:
@@ -241,6 +261,15 @@ class SqlInjectionSimulator(BaseSimulator):
                 self.log(f"[SQLI] ERROR: {exc}")
             if not self._wait_for_interval(tick):
                 break
+        self.log("[SQLI] Forwarding flow statistics to Central ML API...")
+        ok = report_flow_to_ml(
+            src_ip=resolve_local_ip(),
+            dst_ip=self.target_ip,
+            dst_port=self.target_port,
+            flow_type="sqli",
+        )
+        if ok:
+            self.log("[SQLI] ML Detection Event generated successfully (Web Attack pattern).")
         self.log("[SQLI] Simulation complete.")
 
 

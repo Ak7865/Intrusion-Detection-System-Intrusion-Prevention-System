@@ -112,6 +112,18 @@ def push_rule_to_suricata(rule: str) -> bool:
         return False
 
 
+def clear_rules() -> bool:
+    """Clear generated rules file and reload Suricata."""
+    try:
+        SURICATA_CUSTOM_RULES.parent.mkdir(parents=True, exist_ok=True)
+        SURICATA_CUSTOM_RULES.write_text("# Cleared for demo\n", encoding="utf-8")
+        reload_suricata()
+        return True
+    except Exception as e:
+        print(f"[rule_gen] Failed to clear rules: {e}")
+        return False
+
+
 def reload_suricata() -> bool:
     """
     Signal Suricata to reload its rules (requires suricatasc installed).

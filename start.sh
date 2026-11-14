@@ -116,6 +116,10 @@ echo "[3/3] Starting Eve Forwarder (Node $NODE -> $IPS_API)..."
 export IPS_NODE_TOKEN="$TOKEN"
 export IPS_API_URL="$IPS_API"
 
+# Kill any existing stale forwarder instances
+pkill -f eve_forwarder.py 2>/dev/null || true
+sleep 1
+
 echo ""
 echo "=================================================="
 echo "  All services started! Eve Forwarder running."
