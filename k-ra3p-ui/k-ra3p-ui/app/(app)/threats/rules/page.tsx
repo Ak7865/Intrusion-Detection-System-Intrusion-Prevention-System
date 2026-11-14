@@ -1,62 +1,132 @@
-// threats/rules — Detection rules page
-// Rules are managed by Suricata on the sensor nodes and not exposed via the
-// current IPS API.  This page explains that honestly instead of showing fake data.
+"use client";
+import { useEffect, useState, useCallback } from "react";
+import { fetchRules, formatTimestamp, type GeneratedRule } from "@/lib/api";
+
+const REFRESH_MS = 20_000;
+
 export default function RulesPage() {
+  const [rules, setRules] = useState<GeneratedRule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetchRules();
+      setRules(res.rules);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load rules");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+    const id = setInterval(load, REFRESH_MS);
+    return () => clearInterval(id);
+  }, [load]);
+
   return (
     <>
       <div className="page-head">
         <div>
           <h3>Detection Rules</h3>
           <p className="b3 muted">
-            Suricata signature rules deployed on IPS sensor nodes.
+            Suricata signature rules — both sensor baselines and self-learning ML auto-generated rules.
           </p>
         </div>
       </div>
 
-      <div className="card" style={{ padding: 24 }}>
-        <h4 style={{ marginBottom: 12 }}>Rule Management</h4>
-        <p className="b3 muted" style={{ marginBottom: 16 }}>
-          Detection rules are Suricata <code>.rules</code> files managed
-          directly on each sensor node. The current IPS API does not expose a
-          rule-management endpoint, so live rule data cannot be displayed here.
-        </p>
-        <ul
-          className="b3 muted"
-          style={{ paddingLeft: 20, lineHeight: "1.8em" }}
-        >
-          <li>
-            Suricata rules live at <code>/etc/suricata/rules/</code> on each
-            Linux sensor.
-          </li>
-          <li>
-            The <code>eve_forwarder.py</code> script reads Suricata EVE JSON and
-            forwards matched alerts to this API automatically.
-          </li>
-          <li>
-            New rules can be added by editing <code>local.rules</code> on the
-            sensor and reloading Suricata with{" "}
-            <code>suricata-update && systemctl reload suricata</code>.
-          </li>
-          <li>
-            All Suricata alerts appear in the{" "}
-            <a href="/threats/alerts">Alerts</a> page once forwarded.
-          </li>
-        </ul>
+      {error && (
+        <div className="card" style={{ padding: 16, marginBottom: 12 }}>
+          <p style={{ color: "var(--sev-critical, #e53)" }}>⚠ {error}</p>
+        </div>
+      )}
+
+      {/* Auto-Generated Rules Section */}
+      <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div>
+            <h4 style={{ margin: 0 }}>Auto-Generated Suricata Rules (Self-Learning ML)</h4>
+            <p className="b3 muted" style={{ marginTop: 4 }}>
+              When the ML model classifies a novel attack flow, a formal Suricata signature is synthesized, pushed to the sensor, and synced across nodes.
+            </p>
+          </div>
+          <span className="badge sev-low">{rules.length} Generated Rules</span>
+        </div>
+
+        {loading ? (
+          <p className="b3 muted" style={{ padding: 12 }}>Loading rules…</p>
+        ) : rules.length === 0 ? (
+          <p className="b3 muted" style={{ padding: 12, background: "var(--surface-2, #1e2130)", borderRadius: 6 }}>
+            No auto-generated rules yet. Run an ML detection (e.g. <code>bash ml_dos_demo.sh</code> or <code>ml_bruteforce_demo.sh</code>) to see the rule generator synthesize new signatures.
+          </p>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>SID</th>
+                  <th>Attack Type</th>
+                  <th>Source IP</th>
+                  <th>Suricata Signature Content</th>
+                  <th>Created</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rules.map((r) => (
+                  <tr key={r.event_id + (r.rule_sid || "")}>
+                    <td style={{ fontFamily: "monospace", fontWeight: 600 }}>
+                      {r.rule_sid ?? "—"}
+                    </td>
+                    <td>
+                      <span className="badge sev-high">{r.attack_type}</span>
+                    </td>
+                    <td style={{ fontFamily: "monospace" }}>{r.source_ip}</td>
+                    <td>
+                      <code style={{ fontSize: 11, background: "var(--surface-2, #1e2130)", padding: "4px 8px", borderRadius: 4, display: "block", maxWidth: 450, overflowX: "auto" }}>
+                        {r.rule_content}
+                      </code>
+                    </td>
+                    <td style={{ fontSize: 12 }}>{formatTimestamp(r.timestamp)}</td>
+                    <td>
+                      <span className="badge sev-low">
+                        {r.rule_status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      <div
-        className="card"
-        style={{
-          padding: 16,
-          marginTop: 12,
-          borderLeft: "3px solid var(--sev-high, #f80)",
-        }}
-      >
-        <p className="b3 muted">
-          <strong>Planned:</strong> A future API extension will allow reading
-          deployed rule counts and status from connected nodes. This page will
-          be updated when that endpoint is available.
+      {/* Rule Management & Architecture Guide */}
+      <div className="card" style={{ padding: 20 }}>
+        <h4 style={{ marginBottom: 12 }}>Self-Learning Suricata & Blockchain Pipeline</h4>
+        <p className="b3 muted" style={{ marginBottom: 14 }}>
+          This decentralized IPS implements a closed-loop feedback cycle between ML detection and Suricata rule enforcement:
         </p>
+        <ul className="b3 muted" style={{ paddingLeft: 20, lineHeight: "1.8em" }}>
+          <li>
+            <strong>1. Signature Detection (Fast Path):</strong> Known attacks hit Suricata directly. Alerts are logged into <code>hyperledger_events.jsonl</code>. No new rule required.
+          </li>
+          <li>
+            <strong>2. ML Detection (Slow Path):</strong> Traffic that bypasses Suricata signatures is scored by the ML Random Forest / XGBoost ensemble.
+          </li>
+          <li>
+            <strong>3. Rule Synthesis:</strong> <code>suricata_rule_generator.py</code> extracts the source IP, destination port, protocol, and traffic thresholds, generating a new rule with a unique SID.
+          </li>
+          <li>
+            <strong>4. Local Enforcement:</strong> The rule is appended to <code>/etc/suricata/rules/ips-ml-generated.rules</code> and Suricata is reloaded via <code>suricatasc</code>.
+          </li>
+          <li>
+            <strong>5. Distributed Ledger Sync:</strong> The new rule and event are committed to Hyperledger Fabric so peer nodes synchronize and apply the rule automatically.
+          </li>
+        </ul>
       </div>
     </>
   );

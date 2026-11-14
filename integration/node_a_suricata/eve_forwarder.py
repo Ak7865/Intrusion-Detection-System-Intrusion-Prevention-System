@@ -72,6 +72,18 @@ def is_api_traffic(event):
     )
 
 
+def is_generic_protocol_decode(event):
+    """Filter out generic protocol decode notices that are not security attack signatures."""
+    alert = event.get("alert") or {}
+    sig = str(alert.get("signature") or "").lower()
+    cat = str(alert.get("category") or "").lower()
+    return (
+        "generic protocol command decode" in sig
+        or "generic protocol command decode" in cat
+        or "applayer detect protocol" in sig
+    )
+
+
 def post(event, token):
     payload = json.dumps(event).encode()
     req = urllib.request.Request(
@@ -108,7 +120,7 @@ def main():
                 event = json.loads(line)
                 if event.get("event_type") != "alert":
                     continue
-                if is_api_traffic(event):
+                if is_api_traffic(event) or is_generic_protocol_decode(event):
                     continue
                 while True:
                     try:

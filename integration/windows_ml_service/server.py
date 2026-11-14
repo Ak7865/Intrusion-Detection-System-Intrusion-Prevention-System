@@ -55,6 +55,24 @@ if LOCAL_ENV_FILE.is_file():
             )
 
 try:
+    from suricata_rule_generator import (
+        generate_rule,
+        handle_ml_detection,
+        handle_suricata_detection
+    )
+except ImportError:
+    try:
+        from integration.windows_ml_service.suricata_rule_generator import (
+            generate_rule,
+            handle_ml_detection,
+            handle_suricata_detection
+        )
+    except ImportError:
+        generate_rule = None
+        handle_ml_detection = None
+        handle_suricata_detection = None
+
+try:
     _raw_node_hashes = json.loads(
         os.environ.get("IPS_NODE_TOKEN_HASHES", "{}")
     )
@@ -375,25 +393,18 @@ def append_event(event: dict[str, Any]) -> None:
 
 def _blockchain_sync_placeholder(event: dict, trigger: str) -> None:
     """
-    BLOCKCHAIN INTEGRATION POINT — implement by teammate.
-
-    trigger: "SURICATA_DETECTED" | "ML_DETECTED_NEW_RULE"
-
-    Flow for SURICATA_DETECTED:
-        1. event already in hyperledger_events.jsonl (done)
-        2. teammate: submit event to Hyperledger Fabric
-        3. teammate: other nodes sync their hyperledger from fabric
-
-    Flow for ML_DETECTED_NEW_RULE:
-        1. event already in hyperledger_events.jsonl (done)
-        2. teammate: generate Suricata rule from ML prediction
-        3. teammate: push rule to local Suricata rules file
-        4. teammate: reload Suricata
-        5. teammate: submit rule + event to Hyperledger Fabric
-        6. teammate: all connected nodes sync their hyperledger
-        7. teammate: each node applies new rules to their Suricata
+    BLOCKCHAIN & SURICATA SYNC INTEGRATION POINT
+    
+    Calls suricata_rule_generator hooks for rule creation, Suricata reload,
+    and Hyperledger Fabric synchronization.
     """
-    pass  # teammate implements this
+    try:
+        if trigger == "ML_DETECTED_NEW_RULE" and handle_ml_detection:
+            handle_ml_detection(event)
+        elif trigger == "SURICATA_DETECTED" and handle_suricata_detection:
+            handle_suricata_detection(event)
+    except Exception as exc:
+        print(f"[blockchain_sync] Error: {exc}", flush=True)
 
 
 def empty_suricata_object() -> dict[str, Any]:
@@ -586,11 +597,15 @@ def make_suricata_event(data: dict[str, Any], observer_node_id: str) -> dict[str
     }
     signature = str(alert.get("signature") or "")
     attack_type = alert.get("category") or signature or "SURICATA_ALERT"
-    is_informational = signature.upper().startswith("ET INFO")
+    is_informational = (
+        signature.upper().startswith("ET INFO")
+        or "GENERIC PROTOCOL" in attack_type.upper()
+        or "GENERIC PROTOCOL" in signature.upper()
+    )
 
     event = make_common_event(
         "SURICATA", str(attack_type), network, timestamp, observer_node_id,
-        attack_detected=False,
+        attack_detected=not is_informational,
         classification_status="INFORMATIONAL" if is_informational else "REQUIRES_REVIEW",
         classification_basis=(
             "SURICATA_SIGNATURE_PREFIX_ET_INFO"
@@ -664,10 +679,16 @@ def handle_suricata(
 
 def handle_flow(flow: dict[str, Any], observer_node_id: str) -> dict[str, Any]:
     _update_node_heartbeat(observer_node_id)
-    # A matching Suricata alert takes precedence; do not create a duplicate ML event.
+    # Only yield precedence if Suricata matched a confirmed signature attack.
+    # Generic protocol decodes or informational notices must not suppress ML attack detection.
     correlated = find_alert(flow, observer_node_id)
     if correlated:
-        return {"status": "suricata_precedence", "event_id": correlated["event_id"]}
+        is_attack = correlated.get("detection", {}).get("attack_detected", False)
+        sig = str(correlated.get("detection", {}).get("suricata", {}).get("signature", "")).lower()
+        cat = str(correlated.get("detection", {}).get("attack_type", "")).lower()
+        is_generic = "generic protocol" in cat or "generic protocol" in sig or "et info" in sig
+        if is_attack and not is_generic:
+            return {"status": "suricata_precedence", "event_id": correlated["event_id"]}
 
     result = score_flow(flow)
     if result["binary_prediction"] == "Normal":
@@ -718,12 +739,35 @@ def handle_flow(flow: dict[str, Any], observer_node_id: str) -> dict[str, Any]:
         f"cicflowmeter-flow:{flow.get('flow_id')}"
         if flow.get("flow_id") is not None else None
     )
+
+    # ── Auto-generate Suricata Rule from ML Attack Pattern ────────────────
+    generated_rule_str = None
+    if generate_rule:
+        try:
+            generated_rule_str = generate_rule(event)
+            if generated_rule_str:
+                import re
+                sid_match = re.search(r"sid:(\d+);", generated_rule_str)
+                sid_num = int(sid_match.group(1)) if sid_match else 9000001
+                event["detection"]["rule_update"] = {
+                    "rule_generated": True,
+                    "rule_sid": sid_num,
+                    "rule_content": generated_rule_str,
+                    "rule_creator": "ML_AUTO_GENERATOR",
+                    "rule_status": "GENERATED_PENDING_BLOCKCHAIN_SYNC"
+                }
+        except Exception as exc:
+            print(f"[rule_generator] Error: {exc}", flush=True)
+
     append_event(event)
+    _blockchain_sync_placeholder(event, "ML_DETECTED_NEW_RULE")
 
     return {
         "status": "attack_event_written",
         "event_id": event["event_id"],
         "ml_prediction_id": prediction_id,
+        "rule_generated": bool(generated_rule_str),
+        "rule": generated_rule_str,
         "feature_compatibility": FEATURE_COMPATIBILITY,
         "warning": (
             "ML output is experimental until live CICFlowMeter features "
@@ -820,6 +864,38 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/blocked":
             blocked = get_blocked_ips()
             self.reply(200, {"blocked_ips": blocked, "total": len(blocked)})
+            return
+
+        if path == "/api/rules":
+            rules = []
+            if EVENT_FILE.is_file():
+                try:
+                    raw_lines = EVENT_FILE.read_text(encoding="utf-8", errors="replace").splitlines()
+                    for line in reversed(raw_lines):
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            evt = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        ru = evt.get("detection", {}).get("rule_update", {})
+                        if ru.get("rule_generated"):
+                            rules.append({
+                                "event_id": evt.get("event_id"),
+                                "timestamp": evt.get("timestamp"),
+                                "attack_type": evt.get("detection", {}).get("attack_type"),
+                                "source_ip": evt.get("network", {}).get("source_ip"),
+                                "destination_port": evt.get("network", {}).get("destination_port"),
+                                "protocol": evt.get("network", {}).get("protocol"),
+                                "rule_sid": ru.get("rule_sid"),
+                                "rule_content": ru.get("rule_content"),
+                                "rule_status": ru.get("rule_status"),
+                                "rule_creator": ru.get("rule_creator")
+                            })
+                except Exception as exc:
+                    print(f"[api/rules] Error reading events: {exc}", flush=True)
+            self.reply(200, {"rules": rules, "total": len(rules)})
             return
 
         self.reply(404, {"error": "not_found"})

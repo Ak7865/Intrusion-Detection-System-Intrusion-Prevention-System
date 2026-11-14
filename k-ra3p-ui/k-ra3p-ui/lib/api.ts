@@ -79,6 +79,19 @@ export interface BlockedIP {
   expires_at: string | null;
 }
 
+export interface GeneratedRule {
+  event_id: string;
+  timestamp: string;
+  attack_type: string;
+  source_ip: string;
+  destination_port: number;
+  protocol: string;
+  rule_sid: number;
+  rule_content: string;
+  rule_status: string;
+  rule_creator: string;
+}
+
 export type NodesResponse = {
   nodes: NodeInfo[];
   total: number;
@@ -147,6 +160,13 @@ export async function fetchBlockedIPs(): Promise<{
   total: number;
 }> {
   return apiFetch<{ blocked_ips: BlockedIP[]; total: number }>("/blocked");
+}
+
+export async function fetchRules(): Promise<{
+  rules: GeneratedRule[];
+  total: number;
+}> {
+  return apiFetch<{ rules: GeneratedRule[]; total: number }>("/rules");
 }
 
 export async function approveNode(node_id: string): Promise<unknown> {
