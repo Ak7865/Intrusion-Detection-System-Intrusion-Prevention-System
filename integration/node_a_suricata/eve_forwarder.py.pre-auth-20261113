@@ -1,0 +1,43 @@
+import json, os, time, urllib.request
+from pathlib import Path
+
+EVE = Path(os.environ.get("SURICATA_EVE", "/var/log/suricata/eve.json"))
+ENDPOINT = os.environ.get("IPS_API_URL", "http://192.168.56.1:8765/suricata")
+RETRY_SECONDS = 2
+
+def post(event):
+    payload = json.dumps(event).encode()
+    req = urllib.request.Request(ENDPOINT, data=payload,
+        headers={"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(req, timeout=5) as response:
+        response.read()
+
+def main():
+    print(f"Following {EVE}; forwarding alert events to {ENDPOINT}")
+    while not EVE.exists():
+        print(f"Waiting for {EVE}")
+        time.sleep(RETRY_SECONDS)
+    with EVE.open("r", encoding="utf-8", errors="replace") as f:
+        f.seek(0, 2)
+        while True:
+            line = f.readline()
+            if not line:
+                time.sleep(0.2)
+                continue
+            try:
+                event = json.loads(line)
+                if event.get("event_type") != "alert":
+                    continue
+                while True:
+                    try:
+                        post(event)
+                        print("Forwarded alert:", event.get("alert", {}).get("signature"))
+                        break
+                    except Exception as exc:
+                        print("Forward failed; retrying:", exc)
+                        time.sleep(RETRY_SECONDS)
+            except json.JSONDecodeError:
+                continue
+
+if __name__ == "__main__":
+    main()

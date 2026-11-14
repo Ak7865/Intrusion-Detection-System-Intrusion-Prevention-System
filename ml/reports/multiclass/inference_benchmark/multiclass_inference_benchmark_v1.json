@@ -1,0 +1,48 @@
+{
+    "experiment": "Standardized Multiclass Inference Benchmark V1",
+    "created_utc": "2026-11-12T10:33:33.611729+00:00",
+    "test_records": 552985,
+    "number_of_classes": 8,
+    "classes": [
+        "Botnet",
+        "Brute Force",
+        "DoS/DDoS",
+        "Infiltration",
+        "Normal",
+        "OTHER_RARE",
+        "PortScan",
+        "Web Attack"
+    ],
+    "features": [
+        "Destination Port",
+        "Flow Duration",
+        "Total Fwd Packets",
+        "Total Backward Packets",
+        "Total Length of Fwd Packets",
+        "Total Length of Bwd Packets",
+        "Flow Bytes/s",
+        "Flow Packets/s",
+        "Fwd Packets/s",
+        "Bwd Packets/s",
+        "Down/Up Ratio"
+    ],
+    "chunk_size": 50000,
+    "number_of_chunks": 12,
+    "warmup_records_per_model": 1000,
+    "execution_order": "Alternating model execution order by chunk.",
+    "prediction_method": "predict_proba followed by argmax for multiclass classification.",
+    "timing_scope": "Prediction computation and argmax only. CSV reading, model loading, warm-up, and garbage collection are excluded.",
+    "benchmark_wall_time_seconds": 11.746685100000036,
+    "results": {
+        "random_forest": {
+            "inference_time_seconds": 3.2103176999997913,
+            "latency_ms_per_flow": 0.005805433601272713,
+            "throughput_flows_per_second": 172252.42224470057
+        },
+        "xgboost": {
+            "inference_time_seconds": 7.0073227000000315,
+            "latency_ms_per_flow": 0.012671813340325744,
+            "throughput_flows_per_second": 78915.3038435061
+        }
+    }
+}

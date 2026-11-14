@@ -1,0 +1,236 @@
+from __future__ import annotations
+import json, os, threading, time, uuid
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+import joblib
+import numpy as np
+import pandas as pd
+from xgboost import XGBClassifier
+
+ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(os.environ.get("IPS_PROJECT_ROOT", ROOT))
+HOST = os.environ.get("IPS_API_HOST", "0.0.0.0")
+PORT = int(os.environ.get("IPS_API_PORT", "8765"))
+EVENT_DIR = Path(os.environ.get("IPS_EVENT_DIR", PROJECT_ROOT / "runtime" / "events"))
+EVENT_FILE = EVENT_DIR / "hyperledger_events.jsonl"
+FEATURES = [
+    "Destination Port", "Flow Duration", "Total Fwd Packets",
+    "Total Backward Packets", "Total Length of Fwd Packets",
+    "Total Length of Bwd Packets", "Flow Bytes/s", "Flow Packets/s",
+    "Fwd Packets/s", "Bwd Packets/s", "Down/Up Ratio"
+]
+CLASS_CACHE_SECONDS = 180
+alerts, alert_lock, event_lock = {}, threading.Lock(), threading.Lock()
+
+def utcnow():
+    return datetime.now(timezone.utc).isoformat()
+
+def load_models():
+    p = PROJECT_ROOT / "ml" / "models"
+    models = {
+        "binary_rf": joblib.load(p / "binary" / "binary_random_forest.joblib"),
+        "binary_xgb": XGBClassifier(),
+        "multi_rf": joblib.load(p / "multiclass" / "multiclass_random_forest.joblib"),
+        "multi_xgb": XGBClassifier(),
+        "multi_encoder": joblib.load(p / "multiclass" / "multiclass_xgboost_label_encoder.joblib"),
+    }
+    models["binary_xgb"].load_model(str(p / "binary" / "binary_xgboost.json"))
+    models["multi_xgb"].load_model(str(p / "multiclass" / "multiclass_xgboost.json"))
+    for key in ("binary_rf", "binary_xgb", "multi_rf", "multi_xgb"):
+        names = list(getattr(models[key], "feature_names_in_", []))
+        if names and names != FEATURES:
+            raise RuntimeError(f"{key} feature order mismatch: {names}")
+    models["binary_rf_attack_idx"] = list(models["binary_rf"].classes_).index("Attack")
+    models["binary_xgb_attack_idx"] = list(models["binary_xgb"].classes_).index(1)
+    return models
+
+MODELS = load_models()
+
+def tuple_keys(src, dst, sport, dport, proto):
+    return (
+        (str(src), str(dst), int(sport or 0), int(dport or 0), str(proto).lower()),
+        (str(dst), str(src), int(dport or 0), int(sport or 0), str(proto).lower())
+    )
+
+def append_event(event):
+    EVENT_DIR.mkdir(parents=True, exist_ok=True)
+    with event_lock:
+        with EVENT_FILE.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n")
+
+def make_base_event(source, flow=None):
+    flow = flow or {}
+    return {
+        "schema_version": "1.0",
+        "event_id": str(uuid.uuid4()),
+        "created_utc": utcnow(),
+        "event_type": "security_detection",
+        "detection_source": source,
+        "attack_id": str(uuid.uuid4()),
+        "organisation": {
+            "organisation_id": os.environ.get("IPS_ORG_ID", "ORG-001"),
+            "organisation_name": os.environ.get("IPS_ORG_NAME", "IPS-Lab")
+        },
+        "source": {"ip": flow.get("src_ip"), "port": flow.get("src_port")},
+        "destination": {"ip": flow.get("dst_ip"), "port": flow.get("dst_port")},
+        "protocol": flow.get("protocol"),
+        "block_ip_addresses": [],
+        "recommended_action": "REVIEW",
+        "actual_block_status": "NOT_EXECUTED",
+        "evidence": {}
+    }
+
+def find_alert(flow):
+    keys = tuple_keys(flow.get("src_ip"), flow.get("dst_ip"),
+                      flow.get("src_port"), flow.get("dst_port"),
+                      flow.get("protocol"))
+    now = time.time()
+    with alert_lock:
+        expired = [k for k, v in alerts.items() if now - v["received"] > CLASS_CACHE_SECONDS]
+        for k in expired:
+            alerts.pop(k, None)
+        for k in keys:
+            if k in alerts:
+                return alerts[k]["event"]
+    return None
+
+def feature_row(flow):
+    # CICFlowMeter field names -> exact training feature names.
+    mapping = {
+        "Destination Port": flow["dst_port"],
+        # Current Python CICFlowMeter emits seconds; the CICIDS model schema uses microseconds.
+        "Flow Duration": float(flow["flow_duration"]) * 1_000_000.0,
+        "Total Fwd Packets": flow["tot_fwd_pkts"],
+        "Total Backward Packets": flow["tot_bwd_pkts"],
+        "Total Length of Fwd Packets": flow["totlen_fwd_pkts"],
+        "Total Length of Bwd Packets": flow["totlen_bwd_pkts"],
+        "Flow Bytes/s": flow["flow_byts_s"],
+        "Flow Packets/s": flow["flow_pkts_s"],
+        "Fwd Packets/s": flow["fwd_pkts_s"],
+        "Bwd Packets/s": flow["bwd_pkts_s"],
+        "Down/Up Ratio": flow["down_up_ratio"],
+    }
+    values = {k: float(mapping[k]) for k in FEATURES}
+    if not np.isfinite(np.array(list(values.values()), dtype=float)).all():
+        raise ValueError("Non-finite model feature")
+    if any(v < 0 for v in values.values()):
+        raise ValueError("Negative model feature")
+    values["Destination Port"] = int(values["Destination Port"])
+    return pd.DataFrame([[values[f] for f in FEATURES]], columns=FEATURES)
+
+def score_flow(flow):
+    X = feature_row(flow)
+    rf_p = MODELS["binary_rf"].predict_proba(X)[0][MODELS["binary_rf_attack_idx"]]
+    xgb_p = MODELS["binary_xgb"].predict_proba(X)[0][MODELS["binary_xgb_attack_idx"]]
+    binary_p = float((rf_p + xgb_p) / 2.0)
+    binary_label = "Attack" if binary_p >= 0.5 else "Normal"
+    multi_rf_label = str(MODELS["multi_rf"].predict(X)[0])
+    multi_xgb_idx = int(MODELS["multi_xgb"].predict(X).reshape(-1)[0])
+    multi_xgb_label = str(MODELS["multi_encoder"].inverse_transform([multi_xgb_idx])[0])
+    return {
+        "binary": {"prediction": binary_label, "attack_probability": binary_p,
+                   "rf_attack_probability": float(rf_p), "xgboost_attack_probability": float(xgb_p),
+                   "threshold": 0.5},
+        "multiclass": {"random_forest_prediction": multi_rf_label,
+                       "xgboost_prediction": multi_xgb_label}
+    }
+
+def handle_flow(flow):
+    alert = find_alert(flow)
+    if alert:
+        # Suricata is authoritative for this correlated flow; do not run ML.
+        event = dict(alert)
+        event["correlated_flow"] = {
+            "src_ip": flow.get("src_ip"), "dst_ip": flow.get("dst_ip"),
+            "src_port": flow.get("src_port"), "dst_port": flow.get("dst_port"),
+            "protocol": flow.get("protocol")
+        }
+        event["evidence"]["cicflowmeter_flow_received"] = True
+        append_event(event)
+        return {"status": "suricata_precedence", "event_id": event["event_id"]}
+    result = score_flow(flow)
+    if result["binary"]["prediction"] == "Normal":
+        return {"status": "benign_no_event", "ml": result}
+    event = make_base_event("ML", flow)
+    event["attack_type"] = result["multiclass"]["random_forest_prediction"]
+    event["review"] = {
+        "reason": "Binary RF/XGBoost soft-voting ensemble classified the flow as Attack.",
+        "recommendation": "Review the evidence and consider containment.",
+        "confidence": result["binary"]["attack_probability"]
+    }
+    event["evidence"] = {
+        "binary_prediction": result["binary"],
+        "multiclass_prediction": result["multiclass"],
+        "feature_profile": "UNVERIFIED_CICFLOWMETER_COMPATIBILITY",
+        "feature_order": FEATURES,
+        "flow_timestamp": flow.get("timestamp")
+    }
+    src = flow.get("src_ip")
+    if src:
+        event["block_ip_addresses"] = [src]
+    event["recommended_action"] = "REVIEW_AND_CONSIDER_BLOCK"
+    append_event(event)
+    return {"status": "attack_event_written", "event_id": event["event_id"], "ml": result}
+
+class Handler(BaseHTTPRequestHandler):
+    def _reply(self, code, payload):
+        body = json.dumps(payload).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+    def do_GET(self):
+        if self.path == "/health":
+            return self._reply(200, {"status": "ok", "models_loaded": True,
+                                     "feature_compatibility": "NOT_VERIFIED"})
+        return self._reply(404, {"error": "not_found"})
+    def do_POST(self):
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length <= 0 or length > 2_000_000:
+                return self._reply(400, {"error": "invalid_content_length"})
+            data = json.loads(self.rfile.read(length))
+            if self.path == "/flow":
+                return self._reply(200, handle_flow(data))
+            if self.path == "/suricata":
+                event = make_base_event("Suricata", data)
+                alert = data.get("alert", {})
+                event["attack_type"] = alert.get("category") or alert.get("signature")
+                event["suricata"] = {
+                    "signature": alert.get("signature"),
+                    "signature_id": alert.get("signature_id"),
+                    "category": alert.get("category"),
+                    "severity": alert.get("severity"),
+                    "action": alert.get("action"),
+                    "flow_id": data.get("flow_id"),
+                    "event_type": data.get("event_type"),
+                    "timestamp": data.get("timestamp")
+                }
+                event["review"] = {
+                    "reason": "Suricata emitted an alert for this network event.",
+                    "recommendation": "Review alert evidence and policy before containment."
+                }
+                event["recommended_action"] = "REVIEW"
+                event["evidence"] = {"sensor": "Suricata", "eve_event": data}
+                keylist = tuple_keys(data.get("src_ip"), data.get("dest_ip"),
+                                     data.get("src_port"), data.get("dest_port"),
+                                     data.get("proto"))
+                with alert_lock:
+                    for k in keylist:
+                        alerts[k] = {"received": time.time(), "event": event}
+                append_event(event)
+                return self._reply(200, {"status": "suricata_event_written",
+                                         "event_id": event["event_id"]})
+            return self._reply(404, {"error": "not_found"})
+        except Exception as exc:
+            return self._reply(500, {"error": str(exc)})
+    def log_message(self, fmt, *args):
+        print("%s - %s" % (self.address_string(), fmt % args), flush=True)
+
+if __name__ == "__main__":
+    print(f"Loading runtime API on {HOST}:{PORT}")
+    print(f"Event JSONL: {EVENT_FILE}")
+    ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()

@@ -1,0 +1,219 @@
+{
+    "report_name": "Multiclass Model Selection Report",
+    "created_utc": "2026-11-12T10:53:03.711529+00:00",
+    "dataset": "CIC-IDS2017",
+    "test_records": 552985,
+    "training_records": 2211941,
+    "number_of_features": 11,
+    "features": [
+        "Destination Port",
+        "Flow Duration",
+        "Total Fwd Packets",
+        "Total Backward Packets",
+        "Total Length of Fwd Packets",
+        "Total Length of Bwd Packets",
+        "Flow Bytes/s",
+        "Flow Packets/s",
+        "Fwd Packets/s",
+        "Bwd Packets/s",
+        "Down/Up Ratio"
+    ],
+    "classes": [
+        "Botnet",
+        "Brute Force",
+        "DoS/DDoS",
+        "Infiltration",
+        "Normal",
+        "OTHER_RARE",
+        "PortScan",
+        "Web Attack"
+    ],
+    "comparison": {
+        "accuracy": {
+            "random_forest": 98.4817,
+            "xgboost": 99.8127,
+            "unit": "%"
+        },
+        "macro_precision": {
+            "random_forest": 75.504,
+            "xgboost": 98.6052,
+            "unit": "%"
+        },
+        "macro_recall": {
+            "random_forest": 97.7694,
+            "xgboost": 76.5487,
+            "unit": "%"
+        },
+        "macro_f1": {
+            "random_forest": 77.4737,
+            "xgboost": 81.4905,
+            "unit": "%"
+        },
+        "weighted_f1": {
+            "random_forest": 99.0597,
+            "xgboost": 99.7776,
+            "unit": "%"
+        },
+        "training_time_seconds": {
+            "random_forest": 164.86092249999638,
+            "xgboost": 313.59774550000293,
+            "unit": "seconds"
+        },
+        "standardized_inference_time_seconds": {
+            "random_forest": 3.2103176999997913,
+            "xgboost": 7.0073227000000315,
+            "unit": "seconds"
+        },
+        "standardized_latency_ms_per_flow": {
+            "random_forest": 0.005805433601272713,
+            "xgboost": 0.012671813340325744,
+            "unit": "milliseconds/flow"
+        },
+        "standardized_throughput_flows_per_second": {
+            "random_forest": 172252.42224470057,
+            "xgboost": 78915.3038435061,
+            "unit": "flows/second"
+        }
+    },
+    "per_class_performance": {
+        "Botnet": {
+            "support": 378,
+            "random_forest": {
+                "precision": 7.2329,
+                "recall": 98.6772,
+                "f1": 13.4779
+            },
+            "xgboost": {
+                "precision": 98.0263,
+                "recall": 39.418,
+                "f1": 56.2264
+            }
+        },
+        "Brute Force": {
+            "support": 2435,
+            "random_forest": {
+                "precision": 98.4628,
+                "recall": 99.9589,
+                "f1": 99.2052
+            },
+            "xgboost": {
+                "precision": 99.9179,
+                "recall": 99.9589,
+                "f1": 99.9384
+            }
+        },
+        "DoS/DDoS": {
+            "support": 65901,
+            "random_forest": {
+                "precision": 99.381,
+                "recall": 99.8847,
+                "f1": 99.6322
+            },
+            "xgboost": {
+                "precision": 99.7164,
+                "recall": 99.7891,
+                "f1": 99.7527
+            }
+        },
+        "Infiltration": {
+            "support": 8,
+            "random_forest": {
+                "precision": 87.5,
+                "recall": 87.5,
+                "f1": 87.5
+            },
+            "xgboost": {
+                "precision": 100.0,
+                "recall": 62.5,
+                "f1": 76.9231
+            }
+        },
+        "Normal": {
+            "support": 452308,
+            "random_forest": {
+                "precision": 99.9811,
+                "recall": 98.1683,
+                "f1": 99.0664
+            },
+            "xgboost": {
+                "precision": 99.837,
+                "recall": 99.9368,
+                "f1": 99.8869
+            }
+        },
+        "OTHER_RARE": {
+            "support": 2,
+            "random_forest": {
+                "precision": 100.0,
+                "recall": 100.0,
+                "f1": 100.0
+            },
+            "xgboost": {
+                "precision": 100.0,
+                "recall": 100.0,
+                "f1": 100.0
+            }
+        },
+        "PortScan": {
+            "support": 31547,
+            "random_forest": {
+                "precision": 99.6397,
+                "recall": 99.9366,
+                "f1": 99.7879
+            },
+            "xgboost": {
+                "precision": 99.6776,
+                "recall": 99.9493,
+                "f1": 99.8132
+            }
+        },
+        "Web Attack": {
+            "support": 406,
+            "random_forest": {
+                "precision": 11.8347,
+                "recall": 98.0296,
+                "f1": 21.1197
+            },
+            "xgboost": {
+                "precision": 91.6667,
+                "recall": 10.8374,
+                "f1": 19.3833
+            }
+        }
+    },
+    "benchmark_methodology": {
+        "benchmark_name": "Standardized Multiclass Inference Benchmark V1",
+        "benchmark_version": "V1",
+        "test_records": 552985,
+        "chunk_size": 50000,
+        "number_of_chunks": 12,
+        "warmup_records_per_model": 1000,
+        "prediction_method": "predict_proba followed by argmax for multiclass classification.",
+        "timing_scope": "Prediction computation and argmax only. CSV reading, model loading, warm-up, and garbage collection are excluded.",
+        "execution_order": "Alternating model execution order by chunk.",
+        "repeated_runs": false
+    },
+    "findings": [
+        "XGBoost achieved higher accuracy, macro precision, macro F1, and weighted F1.",
+        "Random Forest achieved higher macro recall.",
+        "Random Forest had higher standardized inference throughput and lower standardized latency.",
+        "Random Forest showed low precision for Botnet and Web Attack.",
+        "XGBoost showed low recall for Botnet and Web Attack.",
+        "Infiltration and OTHER_RARE have very small test supports."
+    ],
+    "limitations": [
+        "The dataset is highly class-imbalanced.",
+        "Infiltration has only 8 test records.",
+        "OTHER_RARE has only 2 test records.",
+        "Minority-class metrics are not reliable estimates of generalized performance at these support levels.",
+        "The standardized inference benchmark contains one measured pass.",
+        "Benchmark results measure prediction computation and argmax, not complete end-to-end IPS processing latency.",
+        "Results are specific to the selected CIC-IDS2017 split and the 11 deployment features."
+    ],
+    "selection_recommendation": {
+        "status": "PROVISIONAL_NO_UNCONDITIONAL_WINNER",
+        "random_forest": "Consider when inference throughput and attack-family recall are priorities, but investigate its false positives.",
+        "xgboost": "Consider when precision and overall classification performance are priorities, but investigate missed Botnet and Web Attack samples.",
+        "decision": "Do not finalize the Phase 1 multiclass model yet. Evaluate class-specific error costs, improve minority-class performance, and validate using controlled lab traffic."
+    }
+}

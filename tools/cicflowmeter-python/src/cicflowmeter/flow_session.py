@@ -29,21 +29,21 @@ class FlowSession(DefaultSession):
 
         # NEW: lock protecting self.flows
         self._lock = threading.Lock()
+        
+        self._gc_lock = threading.Lock()
 
         super(FlowSession, self).__init__(*args, **kwargs)
 
     def toPacketList(self):
-        # Sniffer finished all the packets it needed to sniff.
-        # It is not a good place for this, we need to somehow define a finish signal for AsyncSniffer
-        # Use the lock to avoid races with background GC (if any)
-        with self._lock:
-            self.garbage_collect(None)
-            # delete writer after flush
-            try:
-                del self.output_writer
-            except Exception:
-                pass
-        return super(FlowSession, self).toPacketList()
+        
+        self.garbage_collect(None)
+        
+        try:
+            self.output_writer.close()
+        except Exception:
+            self.logger.exception("Failed to close output writer")
+        return []
+   
 
     def process(self, pkt: Packet):
         """
