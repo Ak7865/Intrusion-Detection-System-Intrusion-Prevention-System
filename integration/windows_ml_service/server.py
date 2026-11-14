@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 import joblib
 import numpy as np
@@ -98,6 +99,247 @@ seen_alerts: dict[tuple, float] = {}
 alert_lock = threading.Lock()
 event_lock = threading.Lock()
 
+# ── Node registry (populated on first authenticated POST) ──────────────────────
+_node_registry: dict[str, dict[str, Any]] = {}
+_node_lock = threading.Lock()
+
+ADMIN_API_KEY = os.environ.get("IPS_ADMIN_API_KEY", "")
+
+# ── Blocked IP store ───────────────────────────────────────────────────────────
+BLOCKED_IPS_FILE = PROJECT_ROOT / "runtime" / "blocked_ips.json"
+_blocked_ips: dict[str, dict[str, Any]] = {}
+_blocked_lock = threading.Lock()
+
+
+def _load_blocked_ips() -> None:
+    """Load persisted blocked IPs from JSON file on startup."""
+    global _blocked_ips
+    if BLOCKED_IPS_FILE.is_file():
+        try:
+            data = json.loads(BLOCKED_IPS_FILE.read_text(encoding="utf-8"))
+            _blocked_ips = {k: v for k, v in data.items()}
+        except Exception:
+            _blocked_ips = {}
+
+
+def _save_blocked_ips() -> None:
+    """Persist blocked IPs to JSON file (call under _blocked_lock)."""
+    try:
+        BLOCKED_IPS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        BLOCKED_IPS_FILE.write_text(
+            json.dumps(_blocked_ips, indent=2, ensure_ascii=False),
+            encoding="utf-8"
+        )
+    except Exception as exc:
+        print(f"[blocked_ips] Failed to persist: {exc}", flush=True)
+
+
+def block_ip(ip: str, reason: str, duration_minutes: int = 0, blocked_by: str = "ADMIN") -> dict[str, Any]:
+    """Block an IP. duration_minutes=0 means permanent."""
+    now = utcnow()
+    expires_at = None
+    if duration_minutes > 0:
+        from datetime import timedelta
+        exp = datetime.now(timezone.utc) + timedelta(minutes=duration_minutes)
+        expires_at = exp.isoformat().replace("+00:00", "Z")
+    entry = {
+        "ip": ip, "reason": reason, "blocked_at": now,
+        "blocked_by": blocked_by, "expires_at": expires_at
+    }
+    with _blocked_lock:
+        _blocked_ips[ip] = entry
+        _save_blocked_ips()
+    return entry
+
+
+def unblock_ip(ip: str) -> bool:
+    """Unblock an IP. Returns True if it was blocked."""
+    with _blocked_lock:
+        removed = _blocked_ips.pop(ip, None)
+        if removed:
+            _save_blocked_ips()
+        return removed is not None
+
+
+def get_blocked_ips() -> list[dict[str, Any]]:
+    """Return list of currently blocked IPs (auto-removes expired ones)."""
+    now_dt = datetime.now(timezone.utc)
+    with _blocked_lock:
+        expired = [
+            ip for ip, entry in _blocked_ips.items()
+            if entry.get("expires_at") and
+            datetime.fromisoformat(entry["expires_at"].replace("Z", "+00:00")) < now_dt
+        ]
+        for ip in expired:
+            _blocked_ips.pop(ip, None)
+        if expired:
+            _save_blocked_ips()
+        return list(_blocked_ips.values())
+
+
+_load_blocked_ips()
+
+# ── Blocked IP store (in-memory + persisted JSON) ──────────────────────────────
+BLOCKED_IPS_FILE = PROJECT_ROOT / "runtime" / "blocked_ips.json"
+_blocked_ips: dict[str, dict] = {}  # ip -> {ip, reason, blocked_at, blocked_by, expires_at or None}
+_blocked_lock = threading.Lock()
+
+
+def _load_blocked_ips() -> None:
+    """Load blocked IPs from persisted JSON on startup."""
+    global _blocked_ips
+    if BLOCKED_IPS_FILE.is_file():
+        try:
+            data = json.loads(BLOCKED_IPS_FILE.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                with _blocked_lock:
+                    _blocked_ips = data
+        except (json.JSONDecodeError, OSError):
+            pass
+
+
+def _save_blocked_ips() -> None:
+    """Persist blocked IPs to JSON. Must be called with _blocked_lock held."""
+    try:
+        BLOCKED_IPS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        BLOCKED_IPS_FILE.write_text(
+            json.dumps(_blocked_ips, ensure_ascii=False, indent=2),
+            encoding="utf-8"
+        )
+    except OSError:
+        pass
+
+
+def _apply_node_approval(node_id: str, entry: dict[str, Any]) -> None:
+    """Set initial approval_status when a node first connects. Called with _node_lock held."""
+    if "approval_status" in entry:
+        return  # Already initialised
+    approved_count = sum(
+        1 for n in _node_registry.values()
+        if n.get("approval_status") == "APPROVED"
+    )
+    now = utcnow()
+    entry["join_requested_at"] = now
+    entry["received_approvals"] = []
+    if approved_count == 0:
+        entry["approval_status"] = "APPROVED"
+        entry["required_approvals"] = 0
+    else:
+        entry["approval_status"] = "PENDING_APPROVAL"
+        entry["required_approvals"] = approved_count
+
+
+def _update_node_heartbeat(node_id: str) -> None:
+    with _node_lock:
+        entry = _node_registry.get(node_id, {})
+        entry["node_id"] = node_id
+        entry["last_heartbeat"] = utcnow()
+        entry["status"] = "online"
+        entry.setdefault("role", "sensor")
+        entry.setdefault("first_seen", utcnow())
+        _apply_node_approval(node_id, entry)
+        _node_registry[node_id] = entry
+
+
+def _read_events_page(page: int, page_size: int, detection_method: str = "") -> dict[str, Any]:
+    """Read events from the JSONL file and return a paginated page."""
+    events: list[dict[str, Any]] = []
+    if EVENT_FILE.is_file():
+        try:
+            raw = EVENT_FILE.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            raw = []
+        for line in reversed(raw):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                evt = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if detection_method:
+                src = evt.get("detection", {}).get("detection_source", "")
+                if src != detection_method:
+                    continue
+            events.append(evt)
+
+    total = len(events)
+    start = (page - 1) * page_size
+    end = start + page_size
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "events": events[start:end]
+    }
+
+
+def _build_stats() -> dict[str, Any]:
+    """Compute dashboard stats from the JSONL file."""
+    suricata_count = 0
+    ml_count = 0
+    informational_count = 0
+    review_count = 0
+    attack_count = 0
+    total = 0
+    recent: list[dict[str, Any]] = []
+
+    if EVENT_FILE.is_file():
+        try:
+            lines = EVENT_FILE.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            lines = []
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                evt = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            total += 1
+            det = evt.get("detection", {})
+            src = det.get("detection_source") or ""
+            status = det.get("classification_status") or ""
+            if src == "SURICATA":
+                suricata_count += 1
+            elif src == "ML_MODEL":
+                ml_count += 1
+            if status == "INFORMATIONAL":
+                informational_count += 1
+            elif status in ("REQUIRES_REVIEW", ""):
+                # Legacy events without classification_status are treated as requiring review
+                review_count += 1
+            if det.get("attack_detected"):
+                attack_count += 1
+
+        # Most recent 10 events (last lines)
+        for line in reversed(lines[-20:]):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                evt = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            recent.append(evt)
+            if len(recent) >= 10:
+                break
+
+    with _node_lock:
+        node_list = list(_node_registry.values())
+
+    return {
+        "total_events": total,
+        "suricata_detections": suricata_count,
+        "ml_detections": ml_count,
+        "informational_alerts": informational_count,
+        "events_requiring_review": review_count,
+        "attack_events": attack_count,
+        "active_nodes": len(node_list),
+        "recent_events": recent
+    }
+
 
 def utcnow() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -129,6 +371,29 @@ def append_event(event: dict[str, Any]) -> None:
         with EVENT_FILE.open("a", encoding="utf-8", newline="\n") as handle:
             handle.write(line + "\n")
             handle.flush()
+
+
+def _blockchain_sync_placeholder(event: dict, trigger: str) -> None:
+    """
+    BLOCKCHAIN INTEGRATION POINT — implement by teammate.
+
+    trigger: "SURICATA_DETECTED" | "ML_DETECTED_NEW_RULE"
+
+    Flow for SURICATA_DETECTED:
+        1. event already in hyperledger_events.jsonl (done)
+        2. teammate: submit event to Hyperledger Fabric
+        3. teammate: other nodes sync their hyperledger from fabric
+
+    Flow for ML_DETECTED_NEW_RULE:
+        1. event already in hyperledger_events.jsonl (done)
+        2. teammate: generate Suricata rule from ML prediction
+        3. teammate: push rule to local Suricata rules file
+        4. teammate: reload Suricata
+        5. teammate: submit rule + event to Hyperledger Fabric
+        6. teammate: all connected nodes sync their hyperledger
+        7. teammate: each node applies new rules to their Suricata
+    """
+    pass  # teammate implements this
 
 
 def empty_suricata_object() -> dict[str, Any]:
@@ -380,16 +645,25 @@ def cache_suricata_alert(data: dict[str, Any], event: dict[str, Any], observer_n
 def handle_suricata(
     data: dict[str, Any], observer_node_id: str
 ) -> dict[str, Any]:
+    _update_node_heartbeat(observer_node_id)
     if data.get("event_type") != "alert":
         return {"status": "ignored_non_alert_event"}
     event = make_suricata_event(data, observer_node_id)
+    # Tag event with node approval status
+    with _node_lock:
+        node_entry = _node_registry.get(observer_node_id, {})
+        node_approval = node_entry.get("approval_status", "APPROVED")
+    if node_approval in ("PENDING_APPROVAL", "REJECTED"):
+        event["node_approval_status"] = "PENDING"
     if not cache_suricata_alert(data, event, observer_node_id):
         return {"status": "duplicate_alert_ignored", "event_id": event["event_id"]}
     append_event(event)
+    _blockchain_sync_placeholder(event, "SURICATA_DETECTED")
     return {"status": "suricata_event_written", "event_id": event["event_id"]}
 
 
 def handle_flow(flow: dict[str, Any], observer_node_id: str) -> dict[str, Any]:
+    _update_node_heartbeat(observer_node_id)
     # A matching Suricata alert takes precedence; do not create a duplicate ML event.
     correlated = find_alert(flow, observer_node_id)
     if correlated:
@@ -408,8 +682,19 @@ def handle_flow(flow: dict[str, Any], observer_node_id: str) -> dict[str, Any]:
         "protocol": normalise_protocol(flow.get("protocol", flow.get("proto"))).upper()
     }
 
+    # Determine the best attack category label.
+    # If the multiclass RF says "Normal" (contradicting the binary Attack prediction),
+    # fall back to the XGBoost multiclass prediction; if that also says "Normal",
+    # label as "Unknown Attack" so the event is never shown as benign.
+    multi_rf_label   = result["random_forest_prediction"]
+    multi_xgb_label  = result["xgboost_prediction"]
+    if multi_rf_label == "Normal":
+        attack_category = multi_xgb_label if multi_xgb_label != "Normal" else "Unknown Attack"
+    else:
+        attack_category = multi_rf_label
+
     event = make_common_event(
-        "ML_MODEL", result["random_forest_prediction"], network,
+        "ML_MODEL", attack_category, network,
         timestamp, observer_node_id,
         attack_detected=True,
         classification_status="MODEL_PREDICTED",
@@ -453,11 +738,33 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.end_headers()
         self.wfile.write(body)
 
+    def do_OPTIONS(self) -> None:
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def _parse_query(self) -> dict[str, str]:
+        parsed = urlparse(self.path)
+        qs = parse_qs(parsed.query)
+        return {k: v[0] for k, v in qs.items()}
+
+    def _path_base(self) -> str:
+        return urlparse(self.path).path
+
     def do_GET(self) -> None:
-        if self.path == "/health":
+        path = self._path_base()
+        qs = self._parse_query()
+
+        if path == "/health":
             self.reply(200, {
                 "status": "ok",
                 "models_loaded": True,
@@ -471,10 +778,162 @@ class Handler(BaseHTTPRequestHandler):
                 "event_file": str(EVENT_FILE)
             })
             return
+
+        if path == "/api/health":
+            self.reply(200, {
+                "status": "ok",
+                "timestamp": utcnow(),
+                "models_loaded": True,
+                "feature_compatibility": FEATURE_COMPATIBILITY,
+                "event_file": str(EVENT_FILE),
+                "event_file_exists": EVENT_FILE.is_file(),
+                "blockchain_status": "PENDING_NOT_SUBMITTED"
+            })
+            return
+
+        if path == "/api/stats":
+            self.reply(200, _build_stats())
+            return
+
+        if path == "/api/events":
+            try:
+                page = max(1, int(qs.get("page", "1")))
+                page_size = min(200, max(1, int(qs.get("page_size", "50"))))
+            except ValueError:
+                self.reply(400, {"error": "invalid_pagination_params"})
+                return
+            detection_method = qs.get("detection_method", "")
+            self.reply(200, _read_events_page(page, page_size, detection_method))
+            return
+
+        if path == "/api/nodes":
+            with _node_lock:
+                node_list = list(_node_registry.values())
+            pending = [n for n in node_list if n.get("approval_status") == "PENDING_APPROVAL"]
+            self.reply(200, {
+                "nodes": node_list,
+                "total": len(node_list),
+                "pending_approvals": len(pending)
+            })
+            return
+
+        if path == "/api/blocked":
+            blocked = get_blocked_ips()
+            self.reply(200, {"blocked_ips": blocked, "total": len(blocked)})
+            return
+
         self.reply(404, {"error": "not_found"})
 
+    def _read_body(self) -> dict[str, Any] | None:
+        """Read and parse JSON body. Returns None and sends error reply on failure."""
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length <= 0 or length > MAX_REQUEST_BYTES:
+                self.reply(400, {"error": "invalid_content_length"})
+                return None
+            data = json.loads(self.rfile.read(length))
+            if not isinstance(data, dict):
+                self.reply(400, {"error": "JSON_body_must_be_an_object"})
+                return None
+            return data
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            self.reply(400, {"error": f"invalid_json: {exc}"})
+            return None
+
     def do_POST(self) -> None:
-        if self.path not in {"/flow", "/suricata"}:
+        path = self._path_base()
+
+        # ── Admin actions (no node token needed) ─────────────────────────────
+        if path == "/api/block":
+            data = self._read_body()
+            if data is None:
+                return
+            ip = str(data.get("ip", "")).strip()
+            if not ip:
+                self.reply(400, {"error": "ip_required"})
+                return
+            reason = str(data.get("reason", "Manually blocked"))
+            duration = int(data.get("duration_minutes", 0))
+            entry = block_ip(ip, reason, duration)
+            self.reply(200, {"status": "blocked", **entry})
+            return
+
+        if path == "/api/unblock":
+            data = self._read_body()
+            if data is None:
+                return
+            ip = str(data.get("ip", "")).strip()
+            if not ip:
+                self.reply(400, {"error": "ip_required"})
+                return
+            removed = unblock_ip(ip)
+            self.reply(200, {"status": "unblocked" if removed else "not_blocked", "ip": ip})
+            return
+
+        if path == "/api/nodes/approve":
+            data = self._read_body()
+            if data is None:
+                return
+            node_id = str(data.get("node_id", "")).strip()
+            approved_by = str(data.get("approved_by", "ADMIN")).strip() or "ADMIN"
+            if not node_id:
+                self.reply(400, {"error": "node_id_required"})
+                return
+            with _node_lock:
+                entry = _node_registry.get(node_id)
+                if not entry:
+                    self.reply(404, {"error": "node_not_found"})
+                    return
+                if entry.get("approval_status") == "APPROVED":
+                    self.reply(200, {"status": "already_approved", "node_id": node_id})
+                    return
+                received = entry.setdefault("received_approvals", [])
+                if approved_by not in received:
+                    received.append(approved_by)
+                required = entry.get("required_approvals", 1)
+                if len(received) >= required:
+                    entry["approval_status"] = "APPROVED"
+                    status = "approved"
+                else:
+                    status = "pending_more_approvals"
+            self.reply(200, {
+                "status": status, "node_id": node_id,
+                "received": len(received), "required": required
+            })
+            return
+
+        if path == "/api/nodes/reject":
+            data = self._read_body()
+            if data is None:
+                return
+            node_id = str(data.get("node_id", "")).strip()
+            if not node_id:
+                self.reply(400, {"error": "node_id_required"})
+                return
+            with _node_lock:
+                entry = _node_registry.get(node_id)
+                if not entry:
+                    self.reply(404, {"error": "node_not_found"})
+                    return
+                entry["approval_status"] = "REJECTED"
+            self.reply(200, {"status": "rejected", "node_id": node_id})
+            return
+
+        if path == "/api/events/clear":
+            try:
+                count = 0
+                with event_lock:
+                    if EVENT_FILE.is_file():
+                        lines = EVENT_FILE.read_text(encoding="utf-8").splitlines()
+                        count = sum(1 for l in lines if l.strip())
+                        EVENT_FILE.write_text("", encoding="utf-8")
+                self.reply(200, {"status": "cleared", "events_removed": count})
+            except Exception as exc:
+                self.reply(500, {"error": f"clear_failed: {exc}"})
+            return
+
+        # ── Node-authenticated endpoints ──────────────────────────────────────
+        if path not in {"/flow", "/suricata"}:
             self.reply(404, {"error": "not_found"})
             return
 
@@ -482,34 +941,21 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(503, {"error": "all_three_node_credentials_required"})
             return
 
-        observer_node_id = authenticate_node(
-            self.headers.get("Authorization", "")
-        )
+        observer_node_id = authenticate_node(self.headers.get("Authorization", ""))
         if observer_node_id is None:
             self.reply(401, {"error": "unauthorized"})
             return
 
         try:
-            length = int(self.headers.get("Content-Length", "0"))
-            if length <= 0 or length > MAX_REQUEST_BYTES:
-                self.reply(400, {"error": "invalid_content_length"})
+            data = self._read_body()
+            if data is None:
                 return
-
-            data = json.loads(self.rfile.read(length))
-            if not isinstance(data, dict):
-                self.reply(400, {"error": "JSON_body_must_be_an_object"})
-                return
-
-            if self.path == "/flow":
+            if path == "/flow":
                 self.reply(200, handle_flow(data, observer_node_id))
                 return
-
-            if self.path == "/suricata":
+            if path == "/suricata":
                 self.reply(200, handle_suricata(data, observer_node_id))
                 return
-
-        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-            self.reply(400, {"error": f"invalid_json: {exc}"})
         except KeyError as exc:
             self.reply(400, {"error": f"missing_flow_field: {exc}"})
         except (TypeError, ValueError) as exc:

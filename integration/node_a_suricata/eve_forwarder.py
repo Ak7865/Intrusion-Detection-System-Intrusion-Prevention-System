@@ -1,53 +1,104 @@
+"""
+eve_forwarder.py — Suricata EVE JSON → Central IPS API forwarder.
+
+Environment variables (all optional):
+  SURICATA_EVE        Path to Suricata eve.json  (default: /var/log/suricata/eve.json)
+  IPS_API_URL         POST endpoint              (default: http://192.168.56.1:8765/suricata)
+  IPS_NODE_TOKEN      Raw bearer token (takes priority over file lookup)
+  IPS_NODE_TOKEN_FILE Path to plaintext token file
+                      (default search order: ~/node-a.token, /etc/ips/node-a.token)
+"""
 import json, os, time, urllib.request
 from pathlib import Path
 
-EVE = Path(os.environ.get("SURICATA_EVE", "/var/log/suricata/eve.json"))
+EVE      = Path(os.environ.get("SURICATA_EVE", "/var/log/suricata/eve.json"))
 ENDPOINT = os.environ.get("IPS_API_URL", "http://192.168.56.1:8765/suricata")
-TOKEN_FILE = Path(os.environ.get("IPS_NODE_TOKEN_FILE", "/etc/ips/node-a.token"))
 RETRY_SECONDS = 2
 
-def is_api_traffic(event):
-    http = event.get("http") or {}
+# --- Token resolution (3 methods, in priority order) ---
+def resolve_token() -> str:
+    # 1. Direct env-var (most convenient, no file needed)
+    direct = os.environ.get("IPS_NODE_TOKEN", "").strip()
+    if direct:
+        print("[auth] Token loaded from IPS_NODE_TOKEN env var")
+        return direct
 
-    # Suricata can report the API response in the reverse
-    # direction, where dest_port is an ephemeral client port.
+    # 2. Explicit file path from env-var
+    env_file = os.environ.get("IPS_NODE_TOKEN_FILE", "").strip()
+    if env_file:
+        p = Path(env_file).expanduser()
+        if p.is_file():
+            tok = p.read_text(encoding="utf-8").strip()
+            if tok:
+                print(f"[auth] Token loaded from {p}")
+                return tok
+        raise RuntimeError(f"Token file specified but not readable: {p}")
+
+    # 3. Auto-discover from common locations
+    candidates = [
+        Path.home() / "node-a.token",          # ~/node-a.token  (no sudo needed)
+        Path("/etc/ips/node-a.token"),           # system path (needs chmod 644)
+        Path("/mnt/hgfs/IPS-Project/integration/node_a_suricata/.node-a.token"),  # shared folder
+    ]
+    for p in candidates:
+        if p.is_file():
+            try:
+                tok = p.read_text(encoding="utf-8").strip()
+                if tok:
+                    print(f"[auth] Token auto-loaded from {p}")
+                    return tok
+            except PermissionError:
+                print(f"[auth] Permission denied reading {p}, trying next…")
+                continue
+
+    raise RuntimeError(
+        "No node token found. Use one of:\n"
+        "  export IPS_NODE_TOKEN=<token>              # pass token directly\n"
+        "  export IPS_NODE_TOKEN_FILE=~/node-a.token  # explicit file path\n"
+        "  echo <token> > ~/node-a.token              # auto-discovered home file"
+    )
+
+
+def is_api_traffic(event):
+    """Filter out events that are just the forwarder talking to the IPS API itself."""
+    http = event.get("http") or {}
     if (http.get("hostname") == "192.168.56.1"
             and http.get("http_port") == 8765):
         return True
-
-    # Also exclude events matching the API connection tuple.
     return (
-        (event.get("dest_ip") == "192.168.56.1"
-         and event.get("dest_port") == 8765)
+        (event.get("dest_ip") == "192.168.56.1" and event.get("dest_port") == 8765)
         or
-        (event.get("src_ip") == "192.168.56.1"
-         and event.get("src_port") == 8765)
+        (event.get("src_ip") == "192.168.56.1" and event.get("src_port") == 8765)
     )
 
 
 def post(event, token):
     payload = json.dumps(event).encode()
-    req = urllib.request.Request(ENDPOINT, data=payload,
+    req = urllib.request.Request(
+        ENDPOINT, data=payload,
         headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}"
-        }, method="POST")
+            "Content-Type":  "application/json",
+            "Authorization": f"Bearer {token}",
+        },
+        method="POST",
+    )
     with urllib.request.urlopen(req, timeout=5) as response:
         response.read()
 
-def main():
-    if not TOKEN_FILE.is_file():
-        raise RuntimeError(f"Node credential file not found: {TOKEN_FILE}")
-    token = TOKEN_FILE.read_text(encoding="utf-8").strip()
-    if not token:
-        raise RuntimeError("Node credential file is empty")
 
-    print(f"Following {EVE}; forwarding alert events to {ENDPOINT}")
+def main():
+    token = resolve_token()
+
+    print(f"[forwarder] Watching {EVE}")
+    print(f"[forwarder] Forwarding alerts → {ENDPOINT}")
+
     while not EVE.exists():
-        print(f"Waiting for {EVE}")
+        print(f"[forwarder] Waiting for {EVE} to appear…")
         time.sleep(RETRY_SECONDS)
+
     with EVE.open("r", encoding="utf-8", errors="replace") as f:
-        f.seek(0, 2)
+        f.seek(0, 2)          # skip existing history; only forward new events
+        print("[forwarder] Ready — forwarding new Suricata alert events…")
         while True:
             line = f.readline()
             if not line:
@@ -62,13 +113,17 @@ def main():
                 while True:
                     try:
                         post(event, token)
-                        print("Forwarded alert:", event.get("alert", {}).get("signature"))
+                        sig = event.get("alert", {}).get("signature", "unknown")
+                        src = event.get("src_ip", "?")
+                        dst = event.get("dest_ip", "?")
+                        print(f"[forwarded] {sig}  {src} → {dst}")
                         break
                     except Exception as exc:
-                        print("Forward failed; retrying:", exc)
+                        print(f"[retry] Forward failed: {exc}")
                         time.sleep(RETRY_SECONDS)
             except json.JSONDecodeError:
                 continue
+
 
 if __name__ == "__main__":
     main()
