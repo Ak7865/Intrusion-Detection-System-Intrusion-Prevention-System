@@ -21,9 +21,7 @@ tmp/
 *.tmp
 
 # Runtime logs and telemetry
-logs/*.jsonl
-logs/*.log
-logs/*.json
+
 
 # Local configuration and secrets
 .env
@@ -39,14 +37,8 @@ logs/*.json
 .DS_Store
 Thumbs.db
 
-# Python build artifacts
-build/
-dist/
-*.egg-info/
 
 # CICFlowMeter local backups and test cache
 tools/cicflowmeter-python/backup/
 tools/cicflowmeter-python/.pytest_cache/
 
-# Local source backups
-*.backup-*
